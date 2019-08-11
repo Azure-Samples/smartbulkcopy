@@ -1,0 +1,14 @@
+{
+    "source":{
+        "connection-string": ""
+    },
+    "destination":{
+        "connection-string": ""
+    },
+    "tables": [],
+    "options": {
+        "max-tasks": 7,
+        "max-logical-partitions": 7,
+        "batch-size": 100000
+    }
+}
