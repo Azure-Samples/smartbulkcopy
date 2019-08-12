@@ -20,7 +20,7 @@
     <Content Include="hsbulkcopy.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="nlog.config">
+    <Content Include="nlog.config">      
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
