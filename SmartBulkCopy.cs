@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
+using NLog;
 
 namespace HSBulkCopy
 {
@@ -46,29 +47,44 @@ namespace HSBulkCopy
 
     class SmartBulkCopy
     {
+        private readonly ILogger _logger;
         private readonly string _sourceConnectionString;
         private readonly string _destinationConnectionString;
         private readonly Stopwatch _stopwatch = new Stopwatch();
-        private readonly ConcurrentQueue<CopyInfo> _queue = new ConcurrentQueue<CopyInfo>();
-        private readonly List<string> tablesToCopy = new List<string>();
+        private readonly ConcurrentQueue<CopyInfo> _queue = new ConcurrentQueue<CopyInfo>();        
         private int _maxTasks = 7;
         private int _logicalPartitionCount = 7;
 
-        public SmartBulkCopy(string sourceConnectionString, string destinationConnectionString)
+        public SmartBulkCopy(string sourceConnectionString, string destinationConnectionString, ILogger logger)
         {
+            _logger = logger;
+
             _sourceConnectionString = sourceConnectionString;
             _destinationConnectionString = destinationConnectionString;
-
-            tablesToCopy.Add("dbo.LINEITEM");
-            tablesToCopy.Add("dbo.ORDERS");
         }
 
         public async Task<int> Copy()
         {
-            Console.WriteLine("Testing connections...");
-            if (!TestConnection(_sourceConnectionString)) return 1;
-            if (!TestConnection(_destinationConnectionString)) return 1;
+            var tableList = new List<string>();
+           
+           // TODO : Get all databases and fill the list
 
+           return await Copy(tableList);
+        }
+
+        public async Task<int> Copy(List<String> tablesToCopy)
+        {
+            var tasks = new List<Task>();
+            
+            _logger.Info("Testing connections...");
+
+            var t1 = TestConnection(_sourceConnectionString);
+            var t2 = TestConnection(_destinationConnectionString);
+
+            await Task.WhenAll(t1, t2);
+        
+            if (await t1 != true || await t2 != true) return 1;
+            
             var copyInfo = new List<CopyInfo>();
 
             var conn = new SqlConnection(_sourceConnectionString);
@@ -97,8 +113,7 @@ namespace HSBulkCopy
 
             Console.WriteLine("Truncating destination tables...");
             tablesToCopy.ForEach(t => TruncateDestinationTable(t));
-
-            var tasks = new List<Task>();
+            
             Console.WriteLine($"Copying using {_maxTasks} parallel tasks.");
             foreach (var i in Enumerable.Range(1, _maxTasks))
             {
@@ -294,19 +309,23 @@ namespace HSBulkCopy
             }
         }
 
-        bool TestConnection(string connectionString)
+        async Task<bool> TestConnection(string connectionString)
         {
+            var builder = new SqlConnectionStringBuilder(connectionString);
+           
+            _logger.Debug($"Testing connection to: {builder.DataSource}...");
+
             var conn = new SqlConnection(connectionString);
             bool result = false;
 
             try {
-                conn.Open();
+                await conn.OpenAsync();
                 result = true;
+                _logger.Debug($"Connection to {builder.DataSource} succeeded.");
             } 
             catch (Exception ex)
             {
-                Console.WriteLine("Error while opening connection.");
-                Console.WriteLine(ex.Message);
+                _logger.Info(ex, "Error while opening connection.");
             } finally {
                 conn.Close();
             }
