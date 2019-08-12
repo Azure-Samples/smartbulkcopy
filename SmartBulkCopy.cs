@@ -45,51 +45,74 @@ namespace HSBulkCopy
         }
     }
 
+    class SmartBulkCopyConfiguration 
+    {
+        public readonly string SourceConnectionString;
+        
+        public readonly string DestinationConnectionString;                       
+
+        public SmartBulkCopyConfiguration(string sourceConnectionString, string destinationConnectionString)
+        {
+            this.SourceConnectionString = sourceConnectionString;
+            this.DestinationConnectionString = destinationConnectionString;            
+        }
+    }
+
     class SmartBulkCopy
     {
         private readonly ILogger _logger;
-        private readonly string _sourceConnectionString;
-        private readonly string _destinationConnectionString;
+        private readonly SmartBulkCopyConfiguration _config;
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private readonly ConcurrentQueue<CopyInfo> _queue = new ConcurrentQueue<CopyInfo>();        
         private int _maxTasks = 7;
         private int _logicalPartitionCount = 7;
 
-        public SmartBulkCopy(string sourceConnectionString, string destinationConnectionString, ILogger logger)
+        public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
             _logger = logger;
-
-            _sourceConnectionString = sourceConnectionString;
-            _destinationConnectionString = destinationConnectionString;
+            _config =  config;            
         }
 
         public async Task<int> Copy()
         {
-            var tableList = new List<string>();
+           var tableList = new List<string>();
            
-           // TODO : Get all databases and fill the list
-
            return await Copy(tableList);
         }
-
+     
         public async Task<int> Copy(List<String> tablesToCopy)
         {
-            var tasks = new List<Task>();
-            
+            _logger.Info("Starting smart bulk copy process...");
+
             _logger.Info("Testing connections...");
 
-            var t1 = TestConnection(_sourceConnectionString);
-            var t2 = TestConnection(_destinationConnectionString);
+            var t1 = TestConnection(_config.SourceConnectionString);
+            var t2 = TestConnection(_config.DestinationConnectionString);
 
             await Task.WhenAll(t1, t2);
         
             if (await t1 != true || await t2 != true) return 1;
             
+            var conn = new SqlConnection(_config.SourceConnectionString);
+            var tasks = new List<Task>();
+
+            var internalTablesToCopy = new List<String>();
+            internalTablesToCopy.AddRange(tablesToCopy.Distinct());
+                                    
+            if (internalTablesToCopy.Contains("*")) {                                
+                _logger.Info("Getting list of tables to copy...");
+                internalTablesToCopy.Remove("*");
+                var tables = conn.Query("select [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) from sys.tables t inner join sys.schemas s on t.[schema_id] = s.[schema_id]");
+                foreach(var t in tables)
+                {   
+                    _logger.Info($"Adding {t.Name}");
+                    internalTablesToCopy.Add(t.Name);                    
+                }                
+            }
+
+            _logger.Info("Analyzing tables...");
             var copyInfo = new List<CopyInfo>();
-
-            var conn = new SqlConnection(_sourceConnectionString);
-
-            foreach (var t in tablesToCopy)
+            foreach (var t in internalTablesToCopy)
             {
                 // TODO: Check it table exists
 
@@ -107,39 +130,39 @@ namespace HSBulkCopy
                 }
             }
 
-            Console.WriteLine("Enqueing work...");
+            _logger.Info("Enqueing work...");
             copyInfo.ForEach(ci => _queue.Enqueue(ci));
-            Console.WriteLine($"{_queue.Count} items enqueued.");
+            _logger.Info($"{_queue.Count} items enqueued.");
 
-            Console.WriteLine("Truncating destination tables...");
-            tablesToCopy.ForEach(t => TruncateDestinationTable(t));
+            _logger.Info("Truncating destination tables...");
+            internalTablesToCopy.ForEach(t => TruncateDestinationTable(t));
             
-            Console.WriteLine($"Copying using {_maxTasks} parallel tasks.");
+            _logger.Info($"Copying using {_maxTasks} parallel tasks.");
             foreach (var i in Enumerable.Range(1, _maxTasks))
             {
                 tasks.Add(new Task(() => BulkCopy(i)));
             }
-            Console.WriteLine($"Starting monitor...");
+            _logger.Info($"Starting monitor...");
             var monitorTask = Task.Run(() => MonitorLogFlush());
 
-            Console.WriteLine($"Start copying...");
+            _logger.Info($"Start copying...");
             _stopwatch.Start();
             tasks.ForEach(t => t.Start());
             await Task.WhenAll(tasks.ToArray());
             _stopwatch.Stop();
-            Console.WriteLine($"Done copying.");
+            _logger.Info($"Done copying.");
 
-            Console.WriteLine($"Waiting for monitor to shut down...");
+            _logger.Info($"Waiting for monitor to shut down...");
             monitorTask.Wait();
 
-            Console.WriteLine("Done in {0:#.00} secs", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
+            _logger.Info("Done in {0:#.00} secs", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
 
             return 0;
         }
 
         private bool CheckIfSourceTableIsPartitioned(string tableName)
         {
-            var conn = new SqlConnection(_sourceConnectionString);
+            var conn = new SqlConnection(_config.SourceConnectionString);
 
             var isPartitioned = (int)conn.ExecuteScalar($@"
                     select 
@@ -157,8 +180,8 @@ namespace HSBulkCopy
 
         private void TruncateDestinationTable(string tableName)
         {
-            Console.WriteLine($"Truncating '{tableName}'...");
-            var destinationConnection = new SqlConnection(_destinationConnectionString);
+            _logger.Info($"Truncating '{tableName}'...");
+            var destinationConnection = new SqlConnection(_config.DestinationConnectionString);
             destinationConnection.ExecuteScalar($"TRUNCATE TABLE {tableName}");
         }
 
@@ -166,9 +189,9 @@ namespace HSBulkCopy
         {
             var copyInfo = new List<CopyInfo>();
 
-            var conn = new SqlConnection(_sourceConnectionString);
+            var conn = new SqlConnection(_config.SourceConnectionString);
 
-            var partitionCount = (int)conn.ExecuteScalar($@"
+            var sql1 = $@"
                     select 
                         partitions = count(*) 
                     from 
@@ -177,11 +200,15 @@ namespace HSBulkCopy
                         [object_id] = object_id('{tableName}') 
                     and
                         index_id in (0,1)
-                    ");
+                    ";
 
-            Console.WriteLine($"Table {tableName} is partitioned. Bulk copy will be parallelized using {partitionCount} partition(s).");
+            _logger.Debug($"Executing: {sql1}");
 
-            var partitionInfo = conn.QuerySingle($@"
+            var partitionCount = (int)conn.ExecuteScalar(sql1);
+
+            _logger.Info($"Table {tableName} is partitioned. Bulk copy will be parallelized using {partitionCount} partition(s).");
+
+            var sql2 = $@"
                 select 
                     pf.[name] as PartitionFunction,
                     c.[name] as PartitionColumn,
@@ -202,7 +229,11 @@ namespace HSBulkCopy
                     i.index_id in (0,1)
                 and
                     ic.partition_ordinal = 1
-                ");
+                ";
+
+            var partitionInfo = conn.QuerySingle(sql2);
+
+            _logger.Debug($"Executing: {sql2}");
 
             foreach (var n in Enumerable.Range(1, partitionCount))
             {
@@ -212,9 +243,7 @@ namespace HSBulkCopy
                 cp.PartitionColumn = partitionInfo.PartitionColumn;
                 cp.PartitionFunction = partitionInfo.PartitionFunction;
 
-                copyInfo.Add(cp);
-
-                //Console.WriteLine(cp.GetPredicate());
+                copyInfo.Add(cp);                       
             }
 
             return copyInfo;
@@ -222,7 +251,7 @@ namespace HSBulkCopy
 
         private List<CopyInfo> CreateLogicalPartitionedTableCopyInfo(string tableName)
         {
-            Console.WriteLine($"Table {tableName} is NOT partitioned. Bulk copy will be parallelized using {_logicalPartitionCount} logical partitions.");
+            _logger.Info($"Table {tableName} is NOT partitioned. Bulk copy will be parallelized using {_logicalPartitionCount} logical partitions.");
 
             var copyInfo = new List<CopyInfo>();
 
@@ -234,8 +263,6 @@ namespace HSBulkCopy
                 cp.LogicalPartitionsCount = _logicalPartitionCount;
 
                 copyInfo.Add(cp);
-
-                //Console.WriteLine(cp.GetPredicate());
             }
 
             return copyInfo;
@@ -245,15 +272,17 @@ namespace HSBulkCopy
         private void BulkCopy(int taskId)
         {
             CopyInfo copyInfo;
-            Console.WriteLine($"Task {taskId}: Started...");
+            _logger.Info($"Task {taskId}: Started...");
 
             while (_queue.TryDequeue(out copyInfo))
             {
-                Console.WriteLine($"Task {taskId}: Processing table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");
-                var sourceConnection = new SqlConnection(_sourceConnectionString);
-                var sourceReader = sourceConnection.ExecuteReader($"SELECT * FROM {copyInfo.TableName} WHERE {copyInfo.GetPredicate()}");
+                _logger.Info($"Task {taskId}: Processing table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");
+                var sourceConnection = new SqlConnection(_config.SourceConnectionString);
+                var sql = $"SELECT * FROM {copyInfo.TableName} WHERE {copyInfo.GetPredicate()}";
+                _logger.Debug($"Task {taskId}: Executing: {sql}");
+                var sourceReader = sourceConnection.ExecuteReader(sql);
 
-                using (var bulkCopy = new SqlBulkCopy(_destinationConnectionString + $";Application Name=hsbulkcopy{taskId}", SqlBulkCopyOptions.TableLock))
+                using (var bulkCopy = new SqlBulkCopy(_config.DestinationConnectionString + $";Application Name=hsbulkcopy{taskId}", SqlBulkCopyOptions.TableLock))
                 {
                     bulkCopy.BulkCopyTimeout = 0;
                     bulkCopy.BatchSize = 100000;
@@ -278,14 +307,15 @@ namespace HSBulkCopy
                         sourceReader.Close();                        
                     }
                 }
+                _logger.Info($"Task {taskId}: Table {copyInfo.TableName}, partition {copyInfo.PartitionNumber} copied.");
             }
 
-            Console.WriteLine($"Task {taskId}: Done.");
+            _logger.Info($"Task {taskId}: Done.");
         }
     
         private void MonitorLogFlush()
         {
-            var conn = new SqlConnection(_destinationConnectionString + ";Application Name=hsbulk_log_monitor");
+            var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=hsbulk_log_monitor");
             var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));           
 
             string query = $@"
@@ -301,7 +331,7 @@ namespace HSBulkCopy
             while (true)
             {
                 var log_flush = (decimal)(conn.ExecuteScalar(query));
-                Console.WriteLine($"Log Flush Speed: {log_flush:00.00} MB/Sec");
+                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec");
 
                 Task.Delay(5000);
 
