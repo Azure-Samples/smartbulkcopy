@@ -43,26 +43,7 @@ namespace HSBulkCopy
         {
             return $"ABS(CAST(%%PhysLoc%% AS BIGINT)) % {LogicalPartitionsCount} = {PartitionNumber - 1}";
         }
-    }
-
-    class SmartBulkCopyConfiguration 
-    {
-        public readonly string SourceConnectionString;
-        
-        public readonly string DestinationConnectionString;         
-
-        public int BatchSize = 100000;
-
-        public int MaxParallelTasks = 7;
-
-        public int LogicalPartitions = 7;
-
-        public SmartBulkCopyConfiguration(string sourceConnectionString, string destinationConnectionString)
-        {
-            this.SourceConnectionString = sourceConnectionString;
-            this.DestinationConnectionString = destinationConnectionString;            
-        }
-    }
+    }    
 
     class SmartBulkCopy
     {
