@@ -49,7 +49,13 @@ namespace HSBulkCopy
     {
         public readonly string SourceConnectionString;
         
-        public readonly string DestinationConnectionString;                       
+        public readonly string DestinationConnectionString;         
+
+        public int BatchSize = 100000;
+
+        public int MaxParallelTasks = 7;
+
+        public int LogicalPartitions = 7;
 
         public SmartBulkCopyConfiguration(string sourceConnectionString, string destinationConnectionString)
         {
@@ -114,7 +120,17 @@ namespace HSBulkCopy
             var copyInfo = new List<CopyInfo>();
             foreach (var t in internalTablesToCopy)
             {
-                // TODO: Check it table exists
+                // Check it tables exists
+                if (!await CheckTableExistence(_config.SourceConnectionString, t))
+                {
+                    _logger.Error($"Table {t} does not exists on source.");
+                    return 1;
+                }
+                if (!await CheckTableExistence(_config.DestinationConnectionString, t))
+                {
+                    _logger.Error($"Table {t} does not exists on destination.");
+                    return 1;
+                }
 
                 // Check if table is partitioned
                 var isPartitioned = CheckIfSourceTableIsPartitioned(t);
@@ -361,6 +377,34 @@ namespace HSBulkCopy
             }
             
             return result;    
+        }
+
+        private async Task<bool> CheckTableExistence(string connectionString, string tableName)
+        {
+            bool result = false;
+            var conn = new SqlConnection(connectionString);            
+            try {
+                await conn.QuerySingleAsync(@"select 
+                        [FullName] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
+                    from 
+                        sys.tables t 
+                    inner join 
+                        sys.schemas s on t.[schema_id] = s.[schema_id]
+                    where
+                        s.[name] = PARSENAME(@tableName, 2)
+                    and
+                        t.[name] = PARSENAME(@tableName, 1)", new { @tableName = tableName});
+                result = true;
+            } 
+            catch (InvalidOperationException)
+            {
+                result = false;
+            }
+            finally {
+                conn.Close();
+            }
+
+            return result;
         }
     }
 }
