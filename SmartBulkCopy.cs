@@ -88,6 +88,21 @@ namespace HSBulkCopy
             await Task.WhenAll(t1, t2);
         
             if (await t1 != true || await t2 != true) return 1;
+
+            _logger.Info("Checking that source is a snapshot...");
+            var isSourceSnapshot = CheckDatabaseSnapshot(_config.SourceConnectionString);
+                        
+            if (!isSourceSnapshot) {
+                if (_config.CheckUsingSnapshot) {
+                    _logger.Error("Source database must be a database snapshot");
+                    return 1;
+                } else {
+                    _logger.Warn("WARNING! Source database is NOT a database snapshot AND database snapshot check has been turned off.");
+                    _logger.Warn("WARNING! Make sure data in source database is not changed during bulk copy process to avoid inconsistencies.");
+                }
+            }            
+            
+            _logger.Info("Initializing copy process...");
             
             var conn = new SqlConnection(_config.SourceConnectionString);
             var tasks = new List<Task>();
@@ -150,6 +165,7 @@ namespace HSBulkCopy
             {
                 tasks.Add(new Task(() => BulkCopy(i)));
             }
+
             _logger.Info($"Starting monitor...");
             var monitorTask = Task.Run(() => MonitorLogFlush());
 
@@ -166,6 +182,13 @@ namespace HSBulkCopy
             _logger.Info("Done in {0:#.00} secs", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
 
             return 0;
+        }
+
+        private bool CheckDatabaseSnapshot(string sourceConnectionString)
+        {
+            var conn = new SqlConnection(_config.SourceConnectionString);
+            var snapshotName = conn.ExecuteScalar("select [name] from sys.databases where source_database_id is not null and database_id = db_id()");
+            return (snapshotName != null);
         }
 
         private bool CheckIfSourceTableIsPartitioned(string tableName)

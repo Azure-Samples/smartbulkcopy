@@ -55,6 +55,8 @@ namespace HSBulkCopy
 
         public bool TruncateTables = false;
 
+        public bool CheckUsingSnapshot = true;
+
         private SmartBulkCopyConfiguration() {}
 
         public static SmartBulkCopyConfiguration LoadFromConfigFile()
@@ -77,6 +79,7 @@ namespace HSBulkCopy
             sbcc.LogicalPartitions = int.Parse(config["destination:logical-partitions"] ?? sbcc.LogicalPartitions.ToString());
             sbcc.MaxParallelTasks = int.Parse(config["destination:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
+            sbcc.CheckUsingSnapshot = bool.Parse(config["options:check-snapshot"] ?? sbcc.CheckUsingSnapshot.ToString());
             
             var tablesArray = config.GetSection("tables").GetChildren();                        
             foreach(var t in tablesArray) {
