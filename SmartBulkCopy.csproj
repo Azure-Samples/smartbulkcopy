@@ -4,12 +4,12 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>    
     <LangVersion>latest</LangVersion>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>Davide Mauri</Authors>
     <Product>Smart Bulk Copy</Product>
     <PackageId>SmartBulkCopy</PackageId>
-    <AssemblyVersion>1.0.1</AssemblyVersion>
-    <FileVersion>1.0.1</FileVersion>
+    <AssemblyVersion>1.1.0</AssemblyVersion>
+    <FileVersion>1.1.0</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
     <Description>Efficentily copy database tables from one database to another</Description>
     <Copyright>Davide Mauri</Copyright>

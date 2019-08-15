@@ -76,6 +76,9 @@ namespace HSBulkCopy
 
             _logger.Info($"Using up to {_config.MaxParallelTasks} to copy data between databases.");
             _logger.Info($"Batch Size is set to: {_config.BatchSize}.");
+            
+            if (_config.TruncateTables)
+                _logger.Info("Destination tables will be truncated.");
 
             _logger.Info("Testing connections...");
 
@@ -137,8 +140,10 @@ namespace HSBulkCopy
             copyInfo.ForEach(ci => _queue.Enqueue(ci));
             _logger.Info($"{_queue.Count} items enqueued.");
 
-            _logger.Info("Truncating destination tables...");
-            internalTablesToCopy.ForEach(t => TruncateDestinationTable(t));
+            if (_config.TruncateTables) {
+                _logger.Info("Truncating destination tables...");
+                internalTablesToCopy.ForEach(t => TruncateDestinationTable(t));
+            }
             
             _logger.Info($"Copying using {_config.MaxParallelTasks} parallel tasks.");
             foreach (var i in Enumerable.Range(1, _config.MaxParallelTasks))

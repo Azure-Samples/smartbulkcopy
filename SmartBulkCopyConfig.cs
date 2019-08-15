@@ -53,6 +53,8 @@ namespace HSBulkCopy
             }
         }
 
+        public bool TruncateTables = false;
+
         private SmartBulkCopyConfiguration() {}
 
         public static SmartBulkCopyConfiguration LoadFromConfigFile()
@@ -74,6 +76,7 @@ namespace HSBulkCopy
             sbcc.BatchSize = int.Parse(config?["options:batch-size"] ?? sbcc.BatchSize.ToString());
             sbcc.LogicalPartitions = int.Parse(config["destination:logical-partitions"] ?? sbcc.LogicalPartitions.ToString());
             sbcc.MaxParallelTasks = int.Parse(config["destination:tasks"] ?? sbcc.MaxParallelTasks.ToString());
+            sbcc.TruncateTables = bool.Parse(config["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
             
             var tablesArray = config.GetSection("tables").GetChildren();                        
             foreach(var t in tablesArray) {
