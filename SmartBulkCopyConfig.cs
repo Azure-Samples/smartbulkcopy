@@ -22,7 +22,14 @@ namespace HSBulkCopy
 
         public List<string> TablesToCopy = new List<string>();
 
-        public int BatchSize = 100000;
+        private int _batchSize = 100000;
+        public int BatchSize {
+            get { return _batchSize; }
+            set {
+                if (value < 1000) throw new ArgumentException($"{nameof(BatchSize)}cannot be less than 1000");
+                if (value > 100000000) throw new ArgumentException($"{nameof(BatchSize)} cannot be greather than 100000000");
+            }
+        }
 
         private int _maxParallelTasks = 7;
         public int MaxParallelTasks {
