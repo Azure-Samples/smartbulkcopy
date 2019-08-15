@@ -116,7 +116,7 @@ namespace HSBulkCopy
                 var tables = conn.Query("select [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) from sys.tables t inner join sys.schemas s on t.[schema_id] = s.[schema_id]");
                 foreach(var t in tables)
                 {   
-                    _logger.Info($"Adding {t.Name}");
+                    _logger.Info($"Adding {t.Name}...");
                     internalTablesToCopy.Add(t.Name);                    
                 }                
             }
@@ -179,7 +179,7 @@ namespace HSBulkCopy
             _logger.Info($"Waiting for monitor to shut down...");
             monitorTask.Wait();
 
-            _logger.Info("Done in {0:#.00} secs", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
+            _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
 
             return 0;
         }
