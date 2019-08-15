@@ -288,7 +288,7 @@ namespace HSBulkCopy
                 using (var bulkCopy = new SqlBulkCopy(_config.DestinationConnectionString + $";Application Name=hsbulkcopy{taskId}", SqlBulkCopyOptions.TableLock))
                 {
                     bulkCopy.BulkCopyTimeout = 0;
-                    bulkCopy.BatchSize = 100000;
+                    bulkCopy.BatchSize = _config.BatchSize;
                     bulkCopy.DestinationTableName = copyInfo.TableName;
 
                     try
