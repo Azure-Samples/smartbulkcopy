@@ -41,7 +41,10 @@ namespace HSBulkCopy
         public int LogicalPartitionsCount;
         public override string GetPredicate()
         {
-            return $"ABS(CAST(%%PhysLoc%% AS BIGINT)) % {LogicalPartitionsCount} = {PartitionNumber - 1}";
+            if (LogicalPartitionsCount > 1) 
+                return $"ABS(CAST(%%PhysLoc%% AS BIGINT)) % {LogicalPartitionsCount} = {PartitionNumber - 1}";
+            else
+                return String.Empty;
         }
     }    
 
@@ -51,25 +54,28 @@ namespace HSBulkCopy
         private readonly SmartBulkCopyConfiguration _config;
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private readonly ConcurrentQueue<CopyInfo> _queue = new ConcurrentQueue<CopyInfo>();        
-        private int _maxTasks = 7;
-        private int _logicalPartitionCount = 7;
 
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
             _logger = logger;
-            _config =  config;            
+            _config = config;            
+
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
+
+            _logger.Info($"SmartBulkCopy engine v. {v}");
         }
 
         public async Task<int> Copy()
-        {
-           var tableList = new List<string>();
-           
-           return await Copy(tableList);
+        {                      
+           return await Copy(_config.TablesToCopy);
         }
      
         public async Task<int> Copy(List<String> tablesToCopy)
         {
             _logger.Info("Starting smart bulk copy process...");
+
+            _logger.Info($"Using up to {_config.MaxParallelTasks} to copy data between databases.");
+            _logger.Info($"Batch Size is set to: {_config.BatchSize}.");
 
             _logger.Info("Testing connections...");
 
@@ -134,8 +140,8 @@ namespace HSBulkCopy
             _logger.Info("Truncating destination tables...");
             internalTablesToCopy.ForEach(t => TruncateDestinationTable(t));
             
-            _logger.Info($"Copying using {_maxTasks} parallel tasks.");
-            foreach (var i in Enumerable.Range(1, _maxTasks))
+            _logger.Info($"Copying using {_config.MaxParallelTasks} parallel tasks.");
+            foreach (var i in Enumerable.Range(1, _config.MaxParallelTasks))
             {
                 tasks.Add(new Task(() => BulkCopy(i)));
             }
@@ -248,16 +254,16 @@ namespace HSBulkCopy
 
         private List<CopyInfo> CreateLogicalPartitionedTableCopyInfo(string tableName)
         {
-            _logger.Info($"Table {tableName} is NOT partitioned. Bulk copy will be parallelized using {_logicalPartitionCount} logical partitions.");
+            _logger.Info($"Table {tableName} is NOT partitioned. Bulk copy will be parallelized using {_config.LogicalPartitions} logical partitions.");
 
             var copyInfo = new List<CopyInfo>();
 
-            foreach (var n in Enumerable.Range(1, _logicalPartitionCount))
+            foreach (var n in Enumerable.Range(1, _config.LogicalPartitions))
             {
                 var cp = new LogicalPartitionCopyInfo();
                 cp.PartitionNumber = n;
                 cp.TableName = tableName;
-                cp.LogicalPartitionsCount = _logicalPartitionCount;
+                cp.LogicalPartitionsCount = _config.LogicalPartitions;
 
                 copyInfo.Add(cp);
             }

@@ -24,15 +24,33 @@ namespace HSBulkCopy
 
         public int BatchSize = 100000;
 
-        public int MaxParallelTasks = 7;
+        private int _maxParallelTasks = 7;
+        public int MaxParallelTasks {
+            get {
+                return _maxParallelTasks;
+            }
+            set {
+                if (value < 1) throw new ArgumentException($"{nameof(MaxParallelTasks)}cannot be less than 1");
+                if (value > 32) throw new ArgumentException($"{nameof(MaxParallelTasks)} cannot be greather than 32");
+            }
+        }
 
-        public int LogicalPartitions = 7;
+        private int _logicalPartitions = 7;
+        public int LogicalPartitions  {
+            get {
+                return _logicalPartitions;
+            }
+            set {
+                if (value < 1) throw new ArgumentException($"{nameof(LogicalPartitions)} cannot be less than 1");
+                if (value > 32) throw new ArgumentException($"{nameof(LogicalPartitions)} cannot be greather than 32");
+            }
+        }
 
         private SmartBulkCopyConfiguration() {}
 
         public static SmartBulkCopyConfiguration LoadFromConfigFile()
         {
-            return LoadFromConfigFile("hsbulkcopy.config");
+            return LoadFromConfigFile("smartbulkcopy.config");
         }
 
         public static SmartBulkCopyConfiguration LoadFromConfigFile(string configFile)
