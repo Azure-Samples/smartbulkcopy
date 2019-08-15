@@ -269,7 +269,6 @@ namespace HSBulkCopy
             }
 
             return copyInfo;
-
         }
 
         private void BulkCopy(int taskId)
