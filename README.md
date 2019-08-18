@@ -13,7 +13,7 @@ Smart Bulk Copy usese [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/ap
 When a source table is partitioned, it uses the physical partitions to execute several queries like the following:
 
 ```sql
-SELECT * FROM <sourceTable> WHERE $partition.<partitionFunction>(<partitionColumn>)
+SELECT * FROM <sourceTable> WHERE $partition.<partitionFunction>(<partitionColumn>) = <n>
 ```
 
 in parallel and to load, in parallel, data into the destination table. `TABLOCK` options is used on the table to allow fully parallelizable bulk inserts.
@@ -27,7 +27,7 @@ If a source table is not partitioned, then Smart Bulk Insert will use the `%%Phy
 If the configuration file specify a value greater than 1 for `logical-partitions` the following query will be used to read the logical partition in parallel:
 
 ```sql
-SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-partitions-count>
+SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-partitions-count> = <n>
 ```
 
 *PLEASE NOTE* that the physical position of a row may change at any time if there is any activity on the database (updates, index reorgs) so it is recommended that this approach is used only in two cases:
