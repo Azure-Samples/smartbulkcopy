@@ -54,6 +54,7 @@ namespace HSBulkCopy
         private readonly SmartBulkCopyConfiguration _config;
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private readonly ConcurrentQueue<CopyInfo> _queue = new ConcurrentQueue<CopyInfo>();        
+        private int _runningTasks = 0;
 
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
@@ -303,6 +304,8 @@ namespace HSBulkCopy
         {
             CopyInfo copyInfo;
             _logger.Info($"Task {taskId}: Started...");
+            
+            Interlocked.Add(ref _runningTasks, 1);
 
             while (_queue.TryDequeue(out copyInfo))
             {
@@ -331,6 +334,7 @@ namespace HSBulkCopy
                             Console.WriteLine(ex.Message);
                             ie = ie.InnerException;
                         }
+                        break;
                     }
                     finally
                     {
@@ -339,6 +343,8 @@ namespace HSBulkCopy
                 }
                 _logger.Info($"Task {taskId}: Table {copyInfo.TableName}, partition {copyInfo.PartitionNumber} copied.");
             }
+
+            Interlocked.Add(ref _runningTasks, -1);
 
             _logger.Info($"Task {taskId}: Done.");
         }
@@ -360,12 +366,12 @@ namespace HSBulkCopy
  
             while (true)
             {
+                if (_queue.Count == 0 && _runningTasks == 0) break;
+                
                 var log_flush = (decimal)(conn.ExecuteScalar(query));
-                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec");
+                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {_runningTasks} Running Tasks");
 
-                Task.Delay(5000);
-
-                if (_queue.Count == 0) break;
+                Task.Delay(5000);                
             }
         }
 
