@@ -43,7 +43,7 @@ Download or clone the repository, make sure you have .NET Core 2.1 installed and
 
 Then just run:
 
-```
+```bash
 dotnet run
 ```
 
@@ -57,13 +57,13 @@ Here's how you can change Smart Bulk Copy configuration to better suits your nee
 
 `tables`: an array of string values the contains the two-part names of the table you want to copy. For example:
 
-```json
+```
 'tables': ['dbo.Table1', 'Sales.Customers']
 ```
 
 An asterisk `*` will be expanded to all tables available in the source database:
 
-```json
+```
 'tables': ['*']
 ```
 
@@ -106,5 +106,3 @@ re not seeing something close to 96 MB/Sec please check that
 ### Is the physical location of a row really always the same in a Database Snapshot
 
 There is on official documentation, but from all my test the answer is YES. I've also included a test script that you can use to verify this. IF you discover something different please report it here. I used SQL Server 2017 to run my tests.
-
-
