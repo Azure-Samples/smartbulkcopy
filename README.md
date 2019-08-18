@@ -106,3 +106,7 @@ re not seeing something close to 96 MB/Sec please check that
 ### Is the physical location of a row really always the same in a Database Snapshot
 
 There is on official documentation, but from all my test the answer is YES. I've also included a test script that you can use to verify this. IF you discover something different please report it here. I used SQL Server 2017 to run my tests.
+
+### I would change the code here and there
+
+Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possibile. Code can be largely improved even, if I tried to apply some of the best practies, but when I had to make some choice I chose simplicity over everything else.
