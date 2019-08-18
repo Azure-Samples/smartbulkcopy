@@ -1,14 +1,16 @@
 {
     "source":{
-        "connection-string": ""
+        "connection-string": "Server=;Initial Catalog=;"
     },
     "destination":{
-        "connection-string": ""
+        "connection-string": "Server=;Initial Catalog=;"
     },
-    "tables": [],
+    "tables": ["*"],
     "options": {
-        "max-tasks": 7,
-        "max-logical-partitions": 7,
-        "batch-size": 100000
+        "tasks": 7,
+        "logical-partitions": 7,
+        "batch-size": 100000,
+        "truncate-tables": true,
+        "check-snapshot": true
     }
 }
