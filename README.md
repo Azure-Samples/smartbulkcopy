@@ -20,7 +20,7 @@ in parallel and to load, in parallel, data into the destination table. `TABLOCK`
 
 ### Non-Partitioned Source Tables
 
-If a source table is not partitioned, then Smart Bulk Insert will use the `%%PhysLoc` virtual column to logically partition tables into non-overlapping partitions that can be safely read in parallel. `%%PhysLoc` is *not* documented, but more info are available here:
+If a source table is not partitioned, then Smart Bulk Insert will use the `%%PhysLoc%%` virtual column to logically partition tables into non-overlapping partitions that can be safely read in parallel. `%%PhysLoc%%` is *not* documented, but more info are available here:
 
 [Where is a record really located?](https://techcommunity.microsoft.com/t5/Premier-Field-Engineering/Where-is-a-record-really-located/ba-p/370972)
 
