@@ -54,13 +54,13 @@ namespace HSBulkCopy
         private readonly SmartBulkCopyConfiguration _config;
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private readonly ConcurrentQueue<CopyInfo> _queue = new ConcurrentQueue<CopyInfo>();        
-        private int _runningTasks = 0;
+        private long _runningTasks = 0;
 
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
             _logger = logger;
             _config = config;            
-
+            
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
             _logger.Info($"SmartBulkCopy engine v. {v}");
@@ -366,12 +366,13 @@ namespace HSBulkCopy
  
             while (true)
             {
-                if (_queue.Count == 0 && _runningTasks == 0) break;
+                var runningTasks = Interlocked.Read(ref _runningTasks);
+                if (_queue.Count == 0 && runningTasks == 0) break;
                 
                 var log_flush = (decimal)(conn.ExecuteScalar(query));
-                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {_runningTasks} Running Tasks");
+                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks");
 
-                Task.Delay(5000);                
+                //Task.Delay(5000);                
             }
         }
 
