@@ -1,4 +1,4 @@
-# Smart Bulk Copy program
+# Smart Bulk Copy
 
 Smart, High-Speed, Bulk Copy program to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
