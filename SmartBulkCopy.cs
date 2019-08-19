@@ -75,7 +75,7 @@ namespace HSBulkCopy
         {
             _logger.Info("Starting smart bulk copy process...");
 
-            _logger.Info($"Using up to {_config.MaxParallelTasks} to copy data between databases.");
+            _logger.Info($"Using up to {_config.MaxParallelTasks} parallel tasks to copy data between databases.");
             _logger.Info($"Batch Size is set to: {_config.BatchSize}.");
             
             if (_config.TruncateTables)
