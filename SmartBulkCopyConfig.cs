@@ -28,6 +28,7 @@ namespace HSBulkCopy
             set {
                 if (value < 1000) throw new ArgumentException($"{nameof(BatchSize)}cannot be less than 1000");
                 if (value > 100000000) throw new ArgumentException($"{nameof(BatchSize)} cannot be greather than 100000000");
+                _batchSize = value;
             }
         }
 
@@ -39,6 +40,7 @@ namespace HSBulkCopy
             set {
                 if (value < 1) throw new ArgumentException($"{nameof(MaxParallelTasks)}cannot be less than 1");
                 if (value > 32) throw new ArgumentException($"{nameof(MaxParallelTasks)} cannot be greather than 32");
+                _maxParallelTasks = value;
             }
         }
 
@@ -50,6 +52,7 @@ namespace HSBulkCopy
             set {
                 if (value < 1) throw new ArgumentException($"{nameof(LogicalPartitions)} cannot be less than 1");
                 if (value > 32) throw new ArgumentException($"{nameof(LogicalPartitions)} cannot be greather than 32");
+                _logicalPartitions = value;
             }
         }
 
@@ -76,10 +79,10 @@ namespace HSBulkCopy
             sbcc.SourceConnectionString = config["source:connection-string"];
             sbcc.DestinationConnectionString = config["destination:connection-string"];
             sbcc.BatchSize = int.Parse(config?["options:batch-size"] ?? sbcc.BatchSize.ToString());
-            sbcc.LogicalPartitions = int.Parse(config["destination:logical-partitions"] ?? sbcc.LogicalPartitions.ToString());
-            sbcc.MaxParallelTasks = int.Parse(config["destination:tasks"] ?? sbcc.MaxParallelTasks.ToString());
-            sbcc.TruncateTables = bool.Parse(config["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
-            sbcc.CheckUsingSnapshot = bool.Parse(config["options:check-snapshot"] ?? sbcc.CheckUsingSnapshot.ToString());
+            sbcc.LogicalPartitions = int.Parse(config?["options:logical-partitions"] ?? sbcc.LogicalPartitions.ToString());
+            sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
+            sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
+            sbcc.CheckUsingSnapshot = bool.Parse(config?["options:check-snapshot"] ?? sbcc.CheckUsingSnapshot.ToString());
             
             var tablesArray = config.GetSection("tables").GetChildren();                        
             foreach(var t in tablesArray) {
