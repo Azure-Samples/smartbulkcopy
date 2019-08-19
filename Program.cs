@@ -18,8 +18,12 @@ namespace HSBulkCopy
             var logger = LogManager.GetCurrentClassLogger();
             try
             {
-                var bulkCopyConfig = SmartBulkCopyConfiguration.LoadFromConfigFile();
-
+                SmartBulkCopyConfiguration bulkCopyConfig;
+                if (args.Length > 0)
+                    bulkCopyConfig = SmartBulkCopyConfiguration.LoadFromConfigFile(args[0]);
+                else 
+                    bulkCopyConfig = SmartBulkCopyConfiguration.LoadFromConfigFile();
+                
                 var sbc = new SmartBulkCopy(bulkCopyConfig, logger);
                 result = await sbc.Copy();
             }
