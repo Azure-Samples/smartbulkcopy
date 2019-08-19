@@ -341,6 +341,8 @@ namespace HSBulkCopy
                 _logger.Info($"Task {taskId}: Table {copyInfo.TableName}, partition {copyInfo.PartitionNumber} copied.");
             }
 
+            string dummy = string.Empty;
+            _activeTasks.Remove(taskId.ToString(), out dummy);
             Interlocked.Add(ref _runningTasks, -1);
 
             _logger.Info($"Task {taskId}: Done.");
@@ -368,7 +370,8 @@ namespace HSBulkCopy
                 
                 var log_flush = (decimal)(conn.ExecuteScalar(query));
                 var copyingTables = String.Join(',', _activeTasks.Values.Distinct().ToArray());
-                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Tables being copied: {copyingTables}");
+                if (copyingTables == "") copyingTables = "None";
+                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Tables being copied: {copyingTables}.");
 
                 //Task.Delay(5000);                
             }
