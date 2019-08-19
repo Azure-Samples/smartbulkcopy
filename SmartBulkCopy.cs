@@ -208,16 +208,18 @@ namespace HSBulkCopy
             monitorTask.Wait();
 
             _logger.Info("Checking source and destination row counts...");
-            bool result = await CheckResults();
+            bool rowsChecked = await CheckResults();
+            int result = 0 ;
 
-            if (!result)
+            if (!rowsChecked)
             {
                 _logger.Warn("WARNING! Source and Destination table have a different number of rows!");
+                result = 2;
             }
 
             _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
 
-            return 0;
+            return result;
         }
 
         private bool CheckTableSize(string tableName)
