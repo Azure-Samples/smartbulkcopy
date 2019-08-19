@@ -12,12 +12,6 @@ using NLog;
 
 namespace HSBulkCopy
 {
-    enum PartitionType
-    {
-        Physical,
-        Logical
-    }
-
     abstract class CopyInfo
     {
         public string TableName;
@@ -169,7 +163,7 @@ namespace HSBulkCopy
             }
 
             _logger.Info($"Starting monitor...");
-            var monitorTask = Task.Run(() => MonitorLogFlush());
+            var monitorTask = Task.Run(() => MonitorCopyProcess());
 
             _logger.Info($"Start copying...");
             _stopwatch.Start();
@@ -352,7 +346,7 @@ namespace HSBulkCopy
             _logger.Info($"Task {taskId}: Done.");
         }
     
-        private void MonitorLogFlush()
+        private void MonitorCopyProcess()
         {
             var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=hsbulk_log_monitor");
             var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));           
@@ -373,7 +367,8 @@ namespace HSBulkCopy
                 if (_queue.Count == 0 && runningTasks == 0) break;
                 
                 var log_flush = (decimal)(conn.ExecuteScalar(query));
-                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Tables being copied: {_activeTasks.Values.Distinct().ToArray()}");
+                var copyingTables = String.Join(',', _activeTasks.Values.Distinct().ToArray());
+                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Tables being copied: {copyingTables}");
 
                 //Task.Delay(5000);                
             }
