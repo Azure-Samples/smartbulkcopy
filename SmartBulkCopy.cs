@@ -507,7 +507,7 @@ namespace HSBulkCopy
         {
             var builder = new SqlConnectionStringBuilder(connectionString);
 
-            _logger.Debug($"Testing connection to: {builder.DataSource}...");
+            _logger.Info($"Testing connection to: {builder.DataSource}...");
 
             var conn = new SqlConnection(connectionString);
             bool result = false;
@@ -516,11 +516,11 @@ namespace HSBulkCopy
             {
                 await conn.OpenAsync();
                 result = true;
-                _logger.Debug($"Connection to {builder.DataSource} succeeded.");
+                _logger.Info($"Connection to {builder.DataSource} succeeded.");
             }
             catch (Exception ex)
             {
-                _logger.Info(ex, "Error while opening connection.");
+                _logger.Error(ex, "Error while opening connection.");
             }
             finally
             {
