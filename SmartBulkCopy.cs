@@ -54,6 +54,7 @@ namespace HSBulkCopy
         private readonly SmartBulkCopyConfiguration _config;
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private readonly ConcurrentQueue<CopyInfo> _queue = new ConcurrentQueue<CopyInfo>();        
+        private readonly ConcurrentDictionary<string, string> _activeTasks = new ConcurrentDictionary<string, string>();
         private long _runningTasks = 0;
 
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
@@ -309,6 +310,8 @@ namespace HSBulkCopy
 
             while (_queue.TryDequeue(out copyInfo))
             {
+                _activeTasks.AddOrUpdate(taskId.ToString(), copyInfo.TableName, (_1, _2) => { return copyInfo.TableName; });
+
                 _logger.Info($"Task {taskId}: Processing table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");
                 var sourceConnection = new SqlConnection(_config.SourceConnectionString);
                 var sql = $"SELECT * FROM {copyInfo.TableName} WHERE {copyInfo.GetPredicate()}";
@@ -370,7 +373,7 @@ namespace HSBulkCopy
                 if (_queue.Count == 0 && runningTasks == 0) break;
                 
                 var log_flush = (decimal)(conn.ExecuteScalar(query));
-                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks");
+                _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Tables being copied: {_activeTasks.Values.Distinct().ToArray()}");
 
                 //Task.Delay(5000);                
             }
