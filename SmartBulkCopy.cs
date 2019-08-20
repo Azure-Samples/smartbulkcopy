@@ -7,8 +7,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text;
 using Dapper;
 using NLog;
+using System.Text.RegularExpressions;
 
 namespace HSBulkCopy
 {
@@ -116,18 +118,36 @@ namespace HSBulkCopy
             var conn = new SqlConnection(_config.SourceConnectionString);
             var tasks = new List<Task>();
 
-            var internalTablesToCopy = new List<String>();
-            internalTablesToCopy.AddRange(tablesToCopy.Distinct());
-
-            if (internalTablesToCopy.Contains("*"))
+            var internalTablesToCopy = new List<String>();            
+            foreach(var t in tablesToCopy.Distinct())
             {
-                _logger.Info("Getting list of tables to copy...");
-                internalTablesToCopy.Remove("*");
-                var tables = conn.Query("select [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) from sys.tables t inner join sys.schemas s on t.[schema_id] = s.[schema_id]");
-                foreach (var t in tables)
+                if (t.Contains("*")) 
                 {
-                    _logger.Info($"Adding {t.Name}...");
-                    internalTablesToCopy.Add(t.Name);
+                    _logger.Info("Getting list of tables to copy...");                    
+                    var tables = conn.Query(@"
+                        select 
+                            [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
+                        from 
+                            sys.tables t 
+                        inner join 
+                            sys.schemas s on t.[schema_id] = s.[schema_id] 
+                        inner join 
+                            sys.objects o on t.[object_id] = o.[object_id] 
+                        where
+                            o.is_ms_shipped = 0
+                    ");
+                    var regExPattern = t.Replace(".", "[.]").Replace("*", ".*");
+                    foreach (var tb in tables)
+                    {
+                        bool matches = Regex.IsMatch(tb.Name.Replace("[", "").Replace("]", ""), regExPattern); // TODO: Improve wildcard matching
+                        if (matches) {
+                            _logger.Info($"Adding {tb.Name}...");
+                            internalTablesToCopy.Add(tb.Name);
+                        }
+                    }
+                } else {
+                    _logger.Info($"Adding {t}...");
+                    internalTablesToCopy.Add(t);
                 }
             }
 
