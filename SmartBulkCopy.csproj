@@ -5,12 +5,12 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>    
     <LangVersion>latest</LangVersion>
-    <Version>1.3.2</Version>
+    <Version>1.3.3</Version>
     <Authors>Davide Mauri</Authors>
     <Product>Smart Bulk Copy</Product>
     <PackageId>SmartBulkCopy</PackageId>
-    <AssemblyVersion>1.3.2</AssemblyVersion>
-    <FileVersion>1.3.2</FileVersion>
+    <AssemblyVersion>1.3.3</AssemblyVersion>
+    <FileVersion>1.3.3</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
     <Description>Efficentily copy database tables from one SQL Server/Azure SQL database to another</Description>
     <Copyright>Davide Mauri</Copyright>
