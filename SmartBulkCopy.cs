@@ -499,7 +499,7 @@ namespace HSBulkCopy
 
         private void MonitorCopyProcess()
         {
-            var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=hsbulk_log_monitor");
+            var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=smartbulkcopy_log_monitor");
             var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));
 
             string query = $@"
