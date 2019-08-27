@@ -23,6 +23,11 @@ namespace HSBulkCopy
 
     class NoPartitionsCopyInfo : CopyInfo
     {
+        public NoPartitionsCopyInfo()
+        {
+            PartitionNumber = 1;
+        }
+
         public override string GetPredicate()
         {
             return String.Empty;
@@ -177,7 +182,7 @@ namespace HSBulkCopy
                     // Check if table is partitioned
                     var isPartitioned = CheckIfSourceTableIsPartitioned(t);
 
-                    // Create the Work Info data based on partitio lind
+                    // Create the Work Info data based on partition type
                     if (isPartitioned)
                     {
                         copyInfo.AddRange(CreatePhysicalPartitionedTableCopyInfo(t));
@@ -190,11 +195,7 @@ namespace HSBulkCopy
                 else
                 {
                     _logger.Info($"Table {t} is small, partitioned copy will not be used.");
-                    copyInfo.Add(new NoPartitionsCopyInfo
-                    {
-                        TableName = t,
-                        PartitionNumber = 1
-                    });
+                    copyInfo.Add(new NoPartitionsCopyInfo { TableName = t });
                 }
             }
 
