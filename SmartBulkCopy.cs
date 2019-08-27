@@ -12,7 +12,7 @@ using Dapper;
 using NLog;
 using System.Text.RegularExpressions;
 
-namespace HSBulkCopy
+namespace SmartBulkCopy
 {
     abstract class CopyInfo
     {
