@@ -528,7 +528,7 @@ namespace SmartBulkCopy
         {
             var builder = new SqlConnectionStringBuilder(connectionString);
 
-            _logger.Info($"Testing connection to: {builder.DataSource}...");
+            _logger.Info($"Testing connection to: {builder.DataSource}, database {builder.InitialCatalog}...");
 
             var conn = new SqlConnection(connectionString);
             bool result = false;
@@ -538,6 +538,20 @@ namespace SmartBulkCopy
                 await conn.OpenAsync();
                 result = true;
                 _logger.Info($"Connection to {builder.DataSource} succeeded.");
+                
+                var sku = conn.ExecuteScalar<string>(@"
+                    BEGIN TRY
+	                    EXEC('SELECT [service_objective] FROM sys.[database_service_objectives]')
+                    END TRY
+                    BEGIN CATCH
+	                    SELECT 'None' AS [service_objective]
+                    END CATCH   
+                    ");
+                if (sku != "None") {
+                    _logger.Info($"Database {builder.DataSource}/{builder.InitialCatalog} is a {sku}.");
+                } else {
+                    _logger.Info($"Database {builder.DataSource}/{builder.InitialCatalog} is a VM/On-Prem.");
+                }
             }
             catch (Exception ex)
             {
