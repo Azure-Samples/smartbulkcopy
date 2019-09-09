@@ -7,8 +7,7 @@ using Microsoft.Extensions.Logging;
 using NLog;
 using NLog.Extensions.Logging;
 
-
-namespace HSBulkCopy
+namespace SmartBulkCopy
 {
     class Program
     {

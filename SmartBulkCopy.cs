@@ -12,7 +12,7 @@ using Dapper;
 using NLog;
 using System.Text.RegularExpressions;
 
-namespace HSBulkCopy
+namespace SmartBulkCopy
 {
     abstract class CopyInfo
     {
@@ -23,6 +23,11 @@ namespace HSBulkCopy
 
     class NoPartitionsCopyInfo : CopyInfo
     {
+        public NoPartitionsCopyInfo()
+        {
+            PartitionNumber = 1;
+        }
+
         public override string GetPredicate()
         {
             return String.Empty;
@@ -177,7 +182,7 @@ namespace HSBulkCopy
                     // Check if table is partitioned
                     var isPartitioned = CheckIfSourceTableIsPartitioned(t);
 
-                    // Create the Work Info data based on partitio lind
+                    // Create the Work Info data based on partition type
                     if (isPartitioned)
                     {
                         copyInfo.AddRange(CreatePhysicalPartitionedTableCopyInfo(t));
@@ -190,11 +195,7 @@ namespace HSBulkCopy
                 else
                 {
                     _logger.Info($"Table {t} is small, partitioned copy will not be used.");
-                    copyInfo.Add(new NoPartitionsCopyInfo
-                    {
-                        TableName = t,
-                        PartitionNumber = 1
-                    });
+                    copyInfo.Add(new NoPartitionsCopyInfo { TableName = t });
                 }
             }
 
@@ -498,7 +499,7 @@ namespace HSBulkCopy
 
         private void MonitorCopyProcess()
         {
-            var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=hsbulk_log_monitor");
+            var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=smartbulkcopy_log_monitor");
             var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));
 
             string query = $@"
@@ -527,7 +528,7 @@ namespace HSBulkCopy
         {
             var builder = new SqlConnectionStringBuilder(connectionString);
 
-            _logger.Info($"Testing connection to: {builder.DataSource}...");
+            _logger.Info($"Testing connection to: {builder.DataSource}, database {builder.InitialCatalog}...");
 
             var conn = new SqlConnection(connectionString);
             bool result = false;
@@ -537,6 +538,20 @@ namespace HSBulkCopy
                 await conn.OpenAsync();
                 result = true;
                 _logger.Info($"Connection to {builder.DataSource} succeeded.");
+                
+                var sku = conn.ExecuteScalar<string>(@"
+                    BEGIN TRY
+	                    EXEC('SELECT [service_objective] FROM sys.[database_service_objectives]')
+                    END TRY
+                    BEGIN CATCH
+	                    SELECT 'None' AS [service_objective]
+                    END CATCH   
+                    ");
+                if (sku != "None") {
+                    _logger.Info($"Database {builder.DataSource}/{builder.InitialCatalog} is a {sku}.");
+                } else {
+                    _logger.Info($"Database {builder.DataSource}/{builder.InitialCatalog} is a VM/On-Prem.");
+                }
             }
             catch (Exception ex)
             {
