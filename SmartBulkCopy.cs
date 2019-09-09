@@ -450,8 +450,8 @@ namespace HSBulkCopy
                     };
                     var sql = $"SELECT * FROM {copyInfo.TableName}{whereClause}";
 
-                    _logger.Debug($"Task {taskId}: Executing: {sql}");
-                    var sourceReader = sourceConnection.ExecuteReader(sql);
+                    _logger.Debug($"Task {taskId}: Executing: {sql}");                    
+                    var sourceReader = sourceConnection.ExecuteReader(sql, commandTimeout: 0);                    
 
                     using (var bulkCopy = new SqlBulkCopy(_config.DestinationConnectionString + $";Application Name=smartbulkcopy{taskId}", SqlBulkCopyOptions.TableLock))
                     {
