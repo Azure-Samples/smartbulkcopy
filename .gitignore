@@ -332,3 +332,4 @@ ASALocalRun/
 # Additional files
 **.env
 smartbulkcopy*.config
+out/
