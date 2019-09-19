@@ -14,6 +14,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace SmartBulkCopy
 {
+    enum SafeCheck {
+        None,
+        Snapshot,
+        ReadOnly
+    }
+
     class SmartBulkCopyConfiguration 
     {
         public string SourceConnectionString;
@@ -58,7 +64,7 @@ namespace SmartBulkCopy
 
         public bool TruncateTables = false;
 
-        public bool CheckUsingSnapshot = true;
+        public SafeCheck SafeCheck = SafeCheck.ReadOnly;
 
         private SmartBulkCopyConfiguration() {}
 
@@ -82,7 +88,26 @@ namespace SmartBulkCopy
             sbcc.LogicalPartitions = int.Parse(config?["options:logical-partitions"] ?? sbcc.LogicalPartitions.ToString());
             sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
-            sbcc.CheckUsingSnapshot = bool.Parse(config?["options:check-snapshot"] ?? sbcc.CheckUsingSnapshot.ToString());
+            
+            var safeCheck = config?["options:safe-check"];
+            if (!string.IsNullOrEmpty(safeCheck))
+            {
+                switch (safeCheck.ToLower()) 
+                {
+                    case "none": sbcc.SafeCheck = SafeCheck.None;
+                        break;
+
+                    case "read-only":
+                    case "readonly": sbcc.SafeCheck = SafeCheck.ReadOnly;
+                        break;
+
+                    case "snapshot": sbcc.SafeCheck = SafeCheck.Snapshot;
+                        break;
+
+                    default: 
+                        throw new ArgumentException("Option safe-check can only contain 'none', 'readonly' or 'snapshot' values.");
+                }
+            }
             
             var tablesArray = config.GetSection("tables").GetChildren();                        
             foreach(var t in tablesArray) {

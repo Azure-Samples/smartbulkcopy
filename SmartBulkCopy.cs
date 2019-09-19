@@ -101,21 +101,28 @@ namespace SmartBulkCopy
 
             if (await t1 != true || await t2 != true) return 1;
 
-            _logger.Info("Checking that source is a snapshot...");
-            var isSourceSnapshot = CheckDatabaseSnapshot();
-
-            if (!isSourceSnapshot)
+            if (_config.SafeCheck != SafeCheck.None)
             {
-                if (_config.CheckUsingSnapshot)
+                _logger.Info("Executing security checks...");
+
+                if (_config.SafeCheck == SafeCheck.Snapshot && !CheckDatabaseSnapshot())            
                 {
                     _logger.Error("Source database must be a database snapshot");
                     return 1;
                 }
-                else
+                if (_config.SafeCheck == SafeCheck.ReadOnly && !CheckDatabaseReadonly())            
                 {
-                    _logger.Warn("WARNING! Source database is NOT a database snapshot AND database snapshot check has been turned off.");
-                    _logger.Warn("WARNING! Make sure data in source database is not changed during bulk copy process to avoid inconsistencies.");
+                    _logger.Error("Source database must set to readonly");
+                    return 1;
                 }
+
+                _logger.Info("Security check passed: source database is immutable.");
+            } 
+            else 
+            {                
+                _logger.Warn("WARNING! Source safety checks disabled.");
+                _logger.Warn("WARNING! It is recommended to enable 'safe-check' option by setting it to 'readonly' or 'snapshot'.");
+                _logger.Warn("WARNING! Make sure data in source database is not changed during bulk copy process to avoid inconsistencies.");
             }
 
             _logger.Info("Initializing copy process...");
@@ -270,6 +277,13 @@ namespace SmartBulkCopy
             var conn = new SqlConnection(_config.SourceConnectionString);
             var snapshotName = conn.ExecuteScalar("select [name] from sys.databases where source_database_id is not null and database_id = db_id()");
             return (snapshotName != null);
+        }
+
+          private bool CheckDatabaseReadonly()
+        {
+            var conn = new SqlConnection(_config.SourceConnectionString);
+            var isReadOnly = conn.ExecuteScalar<int>("SELECT [is_read_only] FROM sys.databases WHERE [database_id] = DB_ID()");
+            return (isReadOnly == 1);
         }
 
         private async Task<bool> CheckResults()

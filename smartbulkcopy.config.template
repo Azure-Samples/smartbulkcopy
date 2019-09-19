@@ -11,6 +11,6 @@
         "logical-partitions": 7,
         "batch-size": 100000,
         "truncate-tables": true,
-        "check-snapshot": true
+        "safe-check": "readonly"
     }
 }
