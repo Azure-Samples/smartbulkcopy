@@ -89,9 +89,9 @@ If you're unsure of what value you should use, leave the suggested 100000.
 
 Instruct Smart Bulk Coy to truncate tables on the destination before loading them.
 
-`"check-snapshot": true`
+`"safe-check": "readonly"`
 
-Check that source database is actually a database snapshot.
+Check that source database is actually a database snapshot or that database is set to readonly mode. Using one of the two options is recommended to avoid data modification while copy is in progress as this can lead to inconsistencies. Supported values are `readonly` and `snapshot`. If you want to disable the safety check use `none`: disabling the security check is *not* recommendded.
 
 ## Notes on Azure SQL
 
