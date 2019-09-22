@@ -548,7 +548,9 @@ namespace SmartBulkCopy
                     };
                     var sql = $"SELECT {copyInfo.GetSelectList()} FROM {copyInfo.TableName}{whereClause}";
 
-                    var options = SqlBulkCopyOptions.TableLock;
+                    var options = SqlBulkCopyOptions.TableLock | 
+                                SqlBulkCopyOptions.KeepIdentity | 
+                                SqlBulkCopyOptions.KeepNulls;
 
                     int attempts = 0;            
                     int delay = 10;
