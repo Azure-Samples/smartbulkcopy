@@ -110,3 +110,11 @@ There is on official documentation, but from all my test the answer is YES. I've
 ### I would change the code here and there
 
 Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possibile. Code can be largely improved even, if I tried to apply some of the best practies, but when I had to make some choice I chose simplicity over everything else.
+
+## Tests
+
+This tool has been tested agains the following sample database with success:
+
+- TPC-H
+- AdventureWorks2012 (Foreign Keys and Views must be dropped from target table before starting bulk copy)
+
