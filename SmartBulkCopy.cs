@@ -293,6 +293,8 @@ namespace SmartBulkCopy
             {
                 _logger.Warn("WARNING! Source and Destination table have a different number of rows!");
                 result = 2;
+            } else {
+                _logger.Info("All tables copied correctly.");
             }
 
             _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
@@ -536,7 +538,8 @@ namespace SmartBulkCopy
                         _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");                                     
                     
                     _activeTasks.AddOrUpdate(taskId.ToString(), copyInfo.TableName, (_1, _2) => { return copyInfo.TableName; });
-                    
+                    _logger.Debug($"Task {taskId}: Added to ActiveTasks");
+
                     var sourceConnection = new SqlConnection(_config.SourceConnectionString);
                     var whereClause = string.Empty;
                     var predicate = copyInfo.GetPredicate();
@@ -624,7 +627,7 @@ namespace SmartBulkCopy
                     }
                 }
 
-                _logger.Info($"Task {taskId}: No more items in queue.");                
+                _logger.Info($"Task {taskId}: No more items in queue, exiting.");                
             }
             catch (Exception ex)
             {
@@ -641,6 +644,7 @@ namespace SmartBulkCopy
             {
                 string dummy = string.Empty;
                 _activeTasks.Remove(taskId.ToString(), out dummy);
+                _logger.Debug($"Task {taskId}: Removed from ActiveTasks");
                 Interlocked.Add(ref _runningTasks, -1);
             }            
         }
