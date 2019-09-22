@@ -98,7 +98,7 @@ namespace SmartBulkCopy
         public int PartitionNumber;
         public abstract string GetPredicate();
         public string GetSelectList() {
-            return string.Join(',', this.Columns);
+            return "[" + string.Join("],[", this.Columns) + "]";
         }
     }
 
@@ -575,7 +575,11 @@ namespace SmartBulkCopy
                         {
                             bulkCopy.BulkCopyTimeout = 0;
                             bulkCopy.BatchSize = _config.BatchSize;
-                            bulkCopy.DestinationTableName = copyInfo.TableName;                        
+                            bulkCopy.DestinationTableName = copyInfo.TableName;      
+                            foreach(string c in copyInfo.Columns)
+                            {
+                                bulkCopy.ColumnMappings.Add(c, c);
+                            }
 
                             try
                             {
