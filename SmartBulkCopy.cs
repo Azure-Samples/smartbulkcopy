@@ -282,7 +282,10 @@ namespace SmartBulkCopy
                 else
                 {
                     _logger.Info($"Table {t} is small, partitioned copy will not be used.");
-                    copyInfo.Add(new NoPartitionsCopyInfo { TableName = t });
+                    var columns = GetColumnsForBulkCopy(t);
+                    var ci = new NoPartitionsCopyInfo() { TableName = t, };
+                    ci.Columns.AddRange(columns);
+                    copyInfo.Add(ci);
                 }
             }
 
