@@ -208,41 +208,7 @@ namespace SmartBulkCopy
 
             _logger.Info("Initializing copy process...");
 
-            var conn = new SqlConnection(_config.SourceConnectionString);
-            var tasks = new List<Task>();
-
-            var internalTablesToCopy = new List<String>();            
-            foreach(var t in tablesToCopy.Distinct())
-            {
-                if (t.Contains("*")) 
-                {
-                    _logger.Info("Getting list of tables to copy...");                    
-                    var tables = conn.Query(@"
-                        select 
-                            [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
-                        from 
-                            sys.tables t 
-                        inner join 
-                            sys.schemas s on t.[schema_id] = s.[schema_id] 
-                        inner join 
-                            sys.objects o on t.[object_id] = o.[object_id] 
-                        where
-                            o.is_ms_shipped = 0
-                    ");
-                    var regExPattern = t.Replace(".", "[.]").Replace("*", ".*");
-                    foreach (var tb in tables)
-                    {
-                        bool matches = Regex.IsMatch(tb.Name.Replace("[", "").Replace("]", ""), regExPattern); // TODO: Improve wildcard matching
-                        if (matches) {
-                            _logger.Info($"Adding {tb.Name}...");
-                            internalTablesToCopy.Add(tb.Name);
-                        }
-                    }
-                } else {
-                    _logger.Info($"Adding {t}...");
-                    internalTablesToCopy.Add(t);
-                }
-            }
+            var internalTablesToCopy = GetTablesToCopy(tablesToCopy.Distinct());
             _tablesToCopy.AddRange(internalTablesToCopy);
 
             _logger.Info("Analyzing tables...");
@@ -300,6 +266,7 @@ namespace SmartBulkCopy
             }
 
             _logger.Info($"Copying using {_config.MaxParallelTasks} parallel tasks.");
+            var tasks = new List<Task>();
             foreach (var i in Enumerable.Range(1, _config.MaxParallelTasks))
             {
                 tasks.Add(new Task(() => BulkCopy(i)));
@@ -776,6 +743,46 @@ namespace SmartBulkCopy
             }
 
             return result;
-        }       
+        }  
+
+        private List<String> GetTablesToCopy(IEnumerable<String> sourceList)
+        {
+            var conn = new SqlConnection(_config.SourceConnectionString);
+
+            var internalTablesToCopy = new List<String>();            
+            foreach(var t in sourceList)
+            {
+                if (t.Contains("*")) 
+                {
+                    _logger.Info("Getting list of tables to copy...");                    
+                    var tables = conn.Query(@"
+                        select 
+                            [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
+                        from 
+                            sys.tables t 
+                        inner join 
+                            sys.schemas s on t.[schema_id] = s.[schema_id] 
+                        inner join 
+                            sys.objects o on t.[object_id] = o.[object_id] 
+                        where
+                            o.is_ms_shipped = 0
+                    ");
+                    var regExPattern = t.Replace(".", "[.]").Replace("*", ".*");
+                    foreach (var tb in tables)
+                    {
+                        bool matches = Regex.IsMatch(tb.Name.Replace("[", "").Replace("]", ""), regExPattern); // TODO: Improve wildcard matching
+                        if (matches) {
+                            _logger.Info($"Adding {tb.Name}...");
+                            internalTablesToCopy.Add(tb.Name);
+                        }
+                    }
+                } else {
+                    _logger.Info($"Adding {t}...");
+                    internalTablesToCopy.Add(t);
+                }
+            }
+
+            return internalTablesToCopy;
+        }     
     }
 }
