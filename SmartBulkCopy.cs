@@ -19,7 +19,10 @@ namespace SmartBulkCopy
     {
         static ILogger _logger = LogManager.GetCurrentClassLogger();
 
-        public static readonly List<int> TransientErrors = new List<int>() { 0, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920 };
+        // Added all error code listed here: "https://docs.microsoft.com/en-us/azure/sql-database/sql-database-develop-error-messages"
+        // Added Error Code 0 to automatically handle killed connections
+        // Added Error Code 4891 to automatically handle "Insert bulk failed due to a schema change of the target table" error
+        public static readonly List<int> TransientErrors = new List<int>() { 0, 4891, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920 };        
 
         public static object TryExecuteScalar(this SqlConnection conn, string sql) {
             int attempts = 0;            
