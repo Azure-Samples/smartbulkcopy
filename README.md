@@ -47,7 +47,7 @@ Then just run:
 dotnet run
 ```
 
-and Smart Bulk Copy will start to copy data from source database to destination database. Please keep in mind that *all destination tables will be truncated by default*.
+and Smart Bulk Copy will start to copy data from source database to destination database. Please keep in mind that *all destination tables will be truncated by default*. This means that Foreign key constraints dropped in the destination database before copying. Read more about `TRUNCATE TABLE` restrictions here: [TRUNCATE TABLE (Transact-SQL)](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions)
 
 ## Configuration Notes
 
@@ -103,11 +103,18 @@ re not seeing something close to 96 MB/Sec please check that
 
 ## Questions and Answers
 
-### Is the physical location of a row really always the same in a Database Snapshot
+### Is the physical location of a row really always the same in a Database Snapshot?
 
 There is on official documentation, but from all my test the answer is YES. I've also included a test script that you can use to verify this. IF you discover something different please report it here. I used SQL Server 2017 to run my tests.
 
-### I would change the code here and there
+### How to generate destination database schema?
+
+SmartBulkCopy only copies data between existing database and existings objects. It will NOT create database or tables for you. This allows you to have full control on how database and tables are created. If you are migrating your database and you'll like to have the schema automatically created for you, you can use one of the two following tool:
+
+- [Database Migration Assistant](https://docs.microsoft.com/en-us/sql/dma/dma-overview?view=sql-server-2017)
+- [mssql-scritper](https://github.com/microsoft/mssql-scripter)
+
+### I would change the code here and there, can I?
 
 Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possibile. Code can be largely improved even, if I tried to apply some of the best practies, but when I had to make some choice I chose simplicity over everything else.
 
@@ -116,5 +123,11 @@ Sure feel free to contribute! I created this tool just with the goal to get the 
 This tool has been tested agains the following sample database with success:
 
 - TPC-H
-- AdventureWorks2012 (Foreign Keys and Views must be dropped from target table before starting bulk copy)
+- AdventureWorks2012 (1)
+- AdventureWorks2014 (1)
+- AdventureWorksDW2012 (1)
+- AdventureWorksDW2012 (1)
+
+(1):Foreign Keys and Views *must* be dropped from target table before starting bulk copy
+
 
