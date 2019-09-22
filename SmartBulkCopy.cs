@@ -766,6 +766,8 @@ namespace SmartBulkCopy
                             sys.objects o on t.[object_id] = o.[object_id] 
                         where
                             o.is_ms_shipped = 0
+                        and
+	                        t.[name] != 'sysdiagrams'
                     ");
                     var regExPattern = t.Replace(".", "[.]").Replace("*", ".*");
                     foreach (var tb in tables)
