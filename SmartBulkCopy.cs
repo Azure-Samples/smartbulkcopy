@@ -407,7 +407,7 @@ namespace SmartBulkCopy
 
         private List<String> GetColumnsForBulkCopy(string tableName)
         {
-            _logger.Info($"Creating column list for {tableName}...");
+            _logger.Debug($"Creating column list for {tableName}...");
             var conn = new SqlConnection(_config.SourceConnectionString);
 
             var sql = $@"
@@ -433,8 +433,6 @@ namespace SmartBulkCopy
         private List<CopyInfo> CreatePhysicalPartitionedTableCopyInfo(string tableName)
         {
             var copyInfo = new List<CopyInfo>();
-
-            var columns = GetColumnsForBulkCopy(tableName);
 
             var conn = new SqlConnection(_config.SourceConnectionString);
 
@@ -481,6 +479,8 @@ namespace SmartBulkCopy
             var partitionInfo = conn.QuerySingle(sql2, new { @tableName = tableName });
 
             _logger.Debug($"Executing: {sql2}");
+
+            var columns = GetColumnsForBulkCopy(tableName);
 
             foreach (var n in Enumerable.Range(1, partitionCount))
             {
