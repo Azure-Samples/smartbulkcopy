@@ -66,6 +66,10 @@ namespace SmartBulkCopy
 
         public SafeCheck SafeCheck = SafeCheck.ReadOnly;
 
+        public int RetryMaxAttempt = 5;
+        
+        public int RetryDelayIncrement = 10;
+
         private SmartBulkCopyConfiguration() {}
 
         public static SmartBulkCopyConfiguration LoadFromConfigFile()
@@ -88,6 +92,8 @@ namespace SmartBulkCopy
             sbcc.LogicalPartitions = int.Parse(config?["options:logical-partitions"] ?? sbcc.LogicalPartitions.ToString());
             sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
+            sbcc.RetryMaxAttempt = int.Parse(config?["options:retry-connection:max-attempt"] ?? sbcc.RetryMaxAttempt.ToString());
+            sbcc.RetryDelayIncrement = int.Parse(config?["options:retry-connection:delay-increment"] ?? sbcc.RetryDelayIncrement.ToString());
             
             var safeCheck = config?["options:safe-check"];
             if (!string.IsNullOrEmpty(safeCheck))

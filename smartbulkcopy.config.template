@@ -1,9 +1,9 @@
 {
     "source":{
-        "connection-string": "Server=;Initial Catalog=;"
+        "connection-string": "Server=;Initial Catalog=;Connection Timeout=300;"
     },
     "destination":{
-        "connection-string": "Server=;Initial Catalog=;"
+        "connection-string": "Server=;Initial Catalog=;Connection Timeout=90;"
     },
     "tables": ["*"],
     "options": {
@@ -11,6 +11,10 @@
         "logical-partitions": 7,
         "batch-size": 100000,
         "truncate-tables": true,
-        "safe-check": "readonly"
+        "safe-check": "readonly",
+        "retry-connection": {
+            "delay-increment": 10,
+            "max-attempt": 5
+        }
     }
 }

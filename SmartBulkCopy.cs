@@ -16,6 +16,18 @@ namespace SmartBulkCopy
 {
     class SmartBulkCopy
     {
+        // Added all error code listed here: "https://docs.microsoft.com/en-us/azure/sql-database/sql-database-develop-error-messages"
+        // Added Error Code 0 to automatically handle killed connections
+        // Added Error Code 4891 to automatically handle "Insert bulk failed due to a schema change of the target table" error
+        // Added Error Code 10054 to handle "The network path was not found" error that could happen if connection is severed (e.g.: cable unplugged)
+        // Added Error Code 53 to handle "No such host is known" error that could happen if connection is severed (e.g.: cable unplugged)
+        // Added Error Code 11001 to handle transient network errors
+        // Added Error Code 10065 to handle transient network errors
+        // Added Error Code 10060 to handle transient network errors
+        // Added Error Code 121 to handle transient network errors
+        private readonly List<int> _transientErrors = new List<int>() { 0, 53, 121, 4891, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920, 10054, 11001, 10065, 10060, 10051};
+        private int _maxAttempts = 5;
+        private int _delay = 10; // seconds
         private readonly ILogger _logger;
         private readonly SmartBulkCopyConfiguration _config;
         private readonly Stopwatch _stopwatch = new Stopwatch();
@@ -54,6 +66,11 @@ namespace SmartBulkCopy
 
             var t1 = TestConnection(_config.SourceConnectionString);
             var t2 = TestConnection(_config.DestinationConnectionString);
+
+            _maxAttempts = _config.RetryMaxAttempt;
+            _delay = _config.RetryDelayIncrement;
+
+            _logger.Info($"Connection retry logic: max {_maxAttempts} times, with {_delay} seconds increment for each attempt.");
 
             await Task.WhenAll(t1, t2);
 
@@ -443,17 +460,16 @@ namespace SmartBulkCopy
                                 SqlBulkCopyOptions.KeepIdentity |
                                 SqlBulkCopyOptions.KeepNulls;
 
-                    int attempts = 0;
-                    int delay = 10;
-                    int waitTime = attempts * delay;
+                    int attempts = 0;                    
+                    int waitTime = attempts * _delay;
 
-                    while (attempts < 5)
+                    while (attempts < _maxAttempts)
                     {
                         attempts += 1;
 
                         if (attempts > 1)
                         {
-                            _logger.Info($"Task {taskId}: Attempt {attempts} out of 5.");
+                            _logger.Info($"Task {taskId}: Attempt {attempts} out of {_maxAttempts}.");
 
                             if (copyInfo is NoPartitionsCopyInfo)
                                 _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName}...");
@@ -466,12 +482,12 @@ namespace SmartBulkCopy
 
                         try
                         {
-                            _logger.Debug($"Task {taskId}: Executing: {sql}");
-                            sourceConnection.TryOpen();
+                            _logger.Debug($"Task {taskId}: Executing: {sql}");      
+                            sourceConnection.Open();                      
                             var sourceReader = sourceConnection.ExecuteReader(sql, commandTimeout: 0);
 
-                            taskConn = new SqlConnection(_config.DestinationConnectionString + $";Application Name=smartbulkcopy{taskId}");
-                            taskConn.TryOpen();
+                            taskConn = new SqlConnection(_config.DestinationConnectionString + $";Application Name=smartbulkcopy{taskId}");                            
+                            taskConn.Open();
                             taskTran = taskConn.BeginTransaction();
 
                             using (var bulkCopy = new SqlBulkCopy(taskConn, options, taskTran))
@@ -491,12 +507,12 @@ namespace SmartBulkCopy
                         }
                         catch (SqlException se)
                         {
-                            if (SqlConnectionExtensions.TransientErrors.Contains(se.Number))
+                            if (_transientErrors.Contains(se.Number))
                             {
-                                if (taskTran.Connection != null)
+                                if (taskTran?.Connection != null)
                                     taskTran.Rollback();
 
-                                waitTime = attempts * delay;
+                                waitTime = attempts * _delay;
 
                                 _logger.Warn($"Task {taskId}: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
                                 _logger.Warn($"Task {taskId}: [{se.Number}] {se.Message}");
@@ -553,21 +569,37 @@ namespace SmartBulkCopy
         }
 
         private void MonitorCopyProcess()
-        {
+        {                                
+            int attempts = 0;            
+            int waitTime = attempts * _delay;                
+                
             while (true)
             {
                 try
-                {
+                {       
+                    attempts += 1;
+
                     var errors = Interlocked.Read(ref _erroredTasks);
                     if (errors != 0)
                     {
-                        _logger.Warn("Shutting down monitor due to unhandled errors in running tasks.");
+                        _logger.Warn("Monitor: Shutting down monitor due to unhandled errors in running tasks.");
                         break;
+                    }
+                    
+                    if (attempts >= _maxAttempts)
+                    {
+                        _logger.Warn("Monitor: Unable to connect query destination database. Terminating monitor.");
+                        break;
+                    }
+
+                    if (attempts > 1)
+                    {
+                        _logger.Info($"Monitor: Attempt {attempts} out of {_maxAttempts}.");
                     }
 
                     // This needs to be in the loop 'cause instance name will change if database Service Level Objective is changed                    
                     var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=smartbulkcopy_log_monitor");
-                    var instance_name = (string)(conn.TryExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));
+                    var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));
 
                     string query = $@"
                         declare @v1 bigint, @v2 bigint
@@ -582,16 +614,33 @@ namespace SmartBulkCopy
                     var runningTasks = Interlocked.Read(ref _runningTasks);
                     if (_queue.Count == 0 && runningTasks == 0) break;
 
-                    var log_flush = Convert.ToDecimal(conn.TryExecuteScalar(query) ?? 0);
+                    var log_flush = Convert.ToDecimal(conn.ExecuteScalar(query) ?? 0);
                     var copyingTables = String.Join(',', _activeTasks.Values.Distinct().ToArray());
                     if (copyingTables == "") copyingTables = "None";
-                    _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Queue Size {_queue.Count}, Tables being copied: {copyingTables}.");
-                }
+                    _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Queue Size {_queue.Count}, Tables being copied: {copyingTables}.");     
+
+                    attempts = 0;           
+                } 
+                catch (SqlException se)
+                {
+                    if (_transientErrors.Contains(se.Number))
+                    {                                    
+                        waitTime = attempts * _delay;
+
+                        _logger.Warn($"Monitor: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
+                        _logger.Warn($"Monitor: [{se.Number}] {se.Message}");
+
+                        Task.Delay(waitTime * 1000).Wait();
+                    } else {
+                        _logger.Error($"Monitor: [{se.Number}] {se.Message}");
+                        throw;
+                    }
+                }           
                 catch (Exception e)
                 {
-                    _logger.Error($"[Monitor]: {e.Message}");
-                    break;
-                }
+                    _logger.Error($"Monitor: {e.Message}");
+                    throw;
+                }                 
             }
         }
 
