@@ -586,7 +586,7 @@ namespace SmartBulkCopy
                         break;
                     }
                     
-                    if (attempts >= _maxAttempts)
+                    if (attempts > _maxAttempts)
                     {
                         _logger.Warn("Monitor: Unable to connect query destination database. Terminating monitor.");
                         break;
