@@ -13,136 +13,9 @@ using NLog;
 using System.Text.RegularExpressions;
 
 namespace SmartBulkCopy
-{    
-
-    public static class SqlConnectionExtensions
-    {
-        static ILogger _logger = LogManager.GetCurrentClassLogger();
-
-        // Added all error code listed here: "https://docs.microsoft.com/en-us/azure/sql-database/sql-database-develop-error-messages"
-        // Added Error Code 0 to automatically handle killed connections
-        // Added Error Code 4891 to automatically handle "Insert bulk failed due to a schema change of the target table" error
-        public static readonly List<int> TransientErrors = new List<int>() { 0, 4891, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920 };        
-
-        public static object TryExecuteScalar(this SqlConnection conn, string sql) {
-            int attempts = 0;            
-            int delay = 10;
-            int waitTime = attempts * delay;
-
-            object result = null;
-            while (attempts < 5) {
-                attempts += 1;
-                try {
-                    conn.TryOpen();
-                    result = conn.ExecuteScalar(sql);                    
-                    attempts = int.MaxValue;
-                } 
-                catch (SqlException se)
-                {
-                    if (TransientErrors.Contains(se.Number))
-                    {                                    
-                        waitTime = attempts * delay;
-
-                        _logger.Warn($"[TryExecuteScalar]: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
-                        _logger.Warn($"[TryExecuteScalar]: [{se.Number}] {se.Message}");
-
-                        Task.Delay(waitTime * 1000).Wait();
-                    } else {
-                        _logger.Error($"[TryExecuteScalar]: [{se.Number}] {se.Message}");
-                        throw;
-                    }           
-                } finally {
-                    if (conn.State == ConnectionState.Open)
-                        conn.Close();
-                }
-            }
-
-            if (attempts != int.MaxValue) throw new ApplicationException("[TryExecuteScalar] Cannot open connection to SQL Server / Azure SQL");
-            return result;
-        }
-
-        public static void TryOpen(this SqlConnection conn)
-        {
-            int attempts = 0;            
-            int delay = 10;
-            int waitTime = attempts * delay;
-
-            while (attempts < 5) {
-                attempts += 1;
-                try {
-                    conn.Open();
-                    attempts = int.MaxValue;
-                } 
-                catch (SqlException se)
-                {
-                    if (TransientErrors.Contains(se.Number))
-                    {                                    
-                         waitTime = attempts * delay;
-
-                        _logger.Warn($"[TryOpen]: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
-                        _logger.Warn($"[TryOpen]: [{se.Number}] {se.Message}");
-
-                        Task.Delay(waitTime * 1000).Wait();
-                    } else {
-                        _logger.Error($"[TryOpen]: [{se.Number}] {se.Message}");
-                        throw;
-                    }           
-                }
-            }
-
-            if (attempts != int.MaxValue) throw new ApplicationException("[TryOpen] Cannot open connection to SQL Server / Azure SQL");
-        }
-    }
-
-    abstract class CopyInfo
-    {
-        public string TableName;
-        public List<string> Columns = new List<string>();
-        public int PartitionNumber;
-        public abstract string GetPredicate();
-        public string GetSelectList() {
-            return "[" + string.Join("],[", this.Columns) + "]";
-        }
-    }
-
-    class NoPartitionsCopyInfo : CopyInfo
-    {
-        public NoPartitionsCopyInfo()
-        {
-            PartitionNumber = 1;
-        }
-
-        public override string GetPredicate()
-        {
-            return String.Empty;
-        }
-    }
-
-    class PhysicalPartitionCopyInfo : CopyInfo
-    {
-        public string PartitionFunction;
-        public string PartitionColumn;
-
-        public override string GetPredicate()
-        {
-            return $"$partition.{PartitionFunction}({PartitionColumn}) = {PartitionNumber}";
-        }
-    }
-
-    class LogicalPartitionCopyInfo : CopyInfo
-    {
-        public int LogicalPartitionsCount;
-        public override string GetPredicate()
-        {
-            if (LogicalPartitionsCount > 1)
-                return $"ABS(CAST(%%PhysLoc%% AS BIGINT)) % {LogicalPartitionsCount} = {PartitionNumber - 1}";
-            else
-                return String.Empty;
-        }
-    }
-
+{
     class SmartBulkCopy
-    {        
+    {
         private readonly ILogger _logger;
         private readonly SmartBulkCopyConfiguration _config;
         private readonly Stopwatch _stopwatch = new Stopwatch();
@@ -150,6 +23,7 @@ namespace SmartBulkCopy
         private readonly List<string> _tablesToCopy = new List<string>();
         private readonly ConcurrentDictionary<string, string> _activeTasks = new ConcurrentDictionary<string, string>();
         private long _runningTasks = 0;
+        private long _erroredTasks = 0;
 
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
@@ -189,21 +63,21 @@ namespace SmartBulkCopy
             {
                 _logger.Info("Executing security checks...");
 
-                if (_config.SafeCheck == SafeCheck.Snapshot && !CheckDatabaseSnapshot())            
+                if (_config.SafeCheck == SafeCheck.Snapshot && !CheckDatabaseSnapshot())
                 {
                     _logger.Error("Source database must be a database snapshot");
                     return 1;
                 }
-                if (_config.SafeCheck == SafeCheck.ReadOnly && !CheckDatabaseReadonly())            
+                if (_config.SafeCheck == SafeCheck.ReadOnly && !CheckDatabaseReadonly())
                 {
                     _logger.Error("Source database must set to readonly");
                     return 1;
                 }
 
                 _logger.Info("Security check passed: source database is immutable.");
-            } 
-            else 
-            {                
+            }
+            else
+            {
                 _logger.Warn("WARNING! Source safety checks disabled.");
                 _logger.Warn("WARNING! It is recommended to enable 'safe-check' option by setting it to 'readonly' or 'snapshot'.");
                 _logger.Warn("WARNING! Make sure data in source database is not changed during bulk copy process to avoid inconsistencies.");
@@ -283,24 +157,37 @@ namespace SmartBulkCopy
             tasks.ForEach(t => t.Start());
             await Task.WhenAll(tasks.ToArray());
             _stopwatch.Stop();
-            _logger.Info($"Done copying.");
-
-            _logger.Info($"Waiting for monitor to shut down...");
-            monitorTask.Wait();
-
-            _logger.Info("Checking source and destination row counts...");
-            bool rowsChecked = await CheckResults();
-            int result = 0 ;
-
-            if (!rowsChecked)
+            if (Interlocked.Read(ref _erroredTasks) == 0)
             {
-                _logger.Warn("WARNING! Source and Destination table have a different number of rows!");
-                result = 2;
+                _logger.Info($"Done copying.");
+                _logger.Info($"Waiting for monitor to shut down...");
+                monitorTask.Wait();
             } else {
-                _logger.Info("All tables copied correctly.");
+                // TODO: cancel monitor execution
             }
 
-            _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
+            int result = 0;
+            
+            if (Interlocked.Read(ref _erroredTasks) == 0)
+            {
+                _logger.Info("Checking source and destination row counts...");
+                bool rowsChecked = await CheckResults();                
+
+                if (!rowsChecked)
+                {
+                    _logger.Warn("WARNING! Source and Destination table have a different number of rows!");
+                    result = 2;
+                }
+                else
+                {
+                    _logger.Info("All tables copied correctly.");
+                }
+
+                _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
+            } else {                
+                _logger.Warn("Completed with errors.");
+                result = 3;            
+            }
 
             return result;
         }
@@ -334,7 +221,7 @@ namespace SmartBulkCopy
             return (snapshotName != null);
         }
 
-          private bool CheckDatabaseReadonly()
+        private bool CheckDatabaseReadonly()
         {
             var conn = new SqlConnection(_config.SourceConnectionString);
             var isReadOnly = conn.ExecuteScalar<int>("SELECT [is_read_only] FROM sys.databases WHERE [database_id] = DB_ID()");
@@ -535,107 +422,118 @@ namespace SmartBulkCopy
             {
                 while (_queue.TryDequeue(out copyInfo))
                 {
-                    if (copyInfo is NoPartitionsCopyInfo) 
+                    if (copyInfo is NoPartitionsCopyInfo)
                         _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName}...");
-                    else 
-                        _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");                                     
-                    
+                    else
+                        _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");
+
                     _activeTasks.AddOrUpdate(taskId.ToString(), copyInfo.TableName, (_1, _2) => { return copyInfo.TableName; });
                     _logger.Debug($"Task {taskId}: Added to ActiveTasks");
 
                     var sourceConnection = new SqlConnection(_config.SourceConnectionString);
                     var whereClause = string.Empty;
                     var predicate = copyInfo.GetPredicate();
-                    if (!string.IsNullOrEmpty(predicate)) {
+                    if (!string.IsNullOrEmpty(predicate))
+                    {
                         whereClause = $" WHERE {predicate}";
                     };
                     var sql = $"SELECT {copyInfo.GetSelectList()} FROM {copyInfo.TableName}{whereClause}";
 
-                    var options = SqlBulkCopyOptions.TableLock | 
-                                SqlBulkCopyOptions.KeepIdentity | 
+                    var options = SqlBulkCopyOptions.TableLock |
+                                SqlBulkCopyOptions.KeepIdentity |
                                 SqlBulkCopyOptions.KeepNulls;
 
-                    int attempts = 0;            
+                    int attempts = 0;
                     int delay = 10;
                     int waitTime = attempts * delay;
 
-                    while (attempts < 5) 
+                    while (attempts < 5)
                     {
                         attempts += 1;
 
-                        if (attempts > 1) {
+                        if (attempts > 1)
+                        {
                             _logger.Info($"Task {taskId}: Attempt {attempts} out of 5.");
 
-                            if (copyInfo is NoPartitionsCopyInfo) 
+                            if (copyInfo is NoPartitionsCopyInfo)
                                 _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName}...");
-                            else 
-                                _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");                                     
+                            else
+                                _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");
                         }
 
-                        _logger.Debug($"Task {taskId}: Executing: {sql}");                              
-                        var sourceReader = sourceConnection.ExecuteReader(sql, commandTimeout: 0);                    
+                        SqlConnection taskConn = null;
+                        SqlTransaction taskTran = null;
 
-                        var taskConn = new SqlConnection(_config.DestinationConnectionString + $";Application Name=smartbulkcopy{taskId}");                                               
-                        taskConn.TryOpen();
-                        var taskTran = taskConn.BeginTransaction();                        
-
-                        using (var bulkCopy = new SqlBulkCopy(taskConn, options, taskTran))
+                        try
                         {
-                            bulkCopy.BulkCopyTimeout = 0;
-                            bulkCopy.BatchSize = _config.BatchSize;
-                            bulkCopy.DestinationTableName = copyInfo.TableName;      
-                            foreach(string c in copyInfo.Columns)
-                            {
-                                bulkCopy.ColumnMappings.Add(c, c);
-                            }
+                            _logger.Debug($"Task {taskId}: Executing: {sql}");
+                            sourceConnection.TryOpen();
+                            var sourceReader = sourceConnection.ExecuteReader(sql, commandTimeout: 0);
 
-                            try
+                            taskConn = new SqlConnection(_config.DestinationConnectionString + $";Application Name=smartbulkcopy{taskId}");
+                            taskConn.TryOpen();
+                            taskTran = taskConn.BeginTransaction();
+
+                            using (var bulkCopy = new SqlBulkCopy(taskConn, options, taskTran))
                             {
+                                bulkCopy.BulkCopyTimeout = 0;
+                                bulkCopy.BatchSize = _config.BatchSize;
+                                bulkCopy.DestinationTableName = copyInfo.TableName;
+                                foreach (string c in copyInfo.Columns)
+                                {
+                                    bulkCopy.ColumnMappings.Add(c, c);
+                                }
+
                                 bulkCopy.WriteToServer(sourceReader);
                                 attempts = int.MaxValue;
                                 taskTran.Commit();
                             }
-                            catch (SqlException se) {
-                                if (SqlConnectionExtensions.TransientErrors.Contains(se.Number))
-                                {                                    
-                                    if (taskTran.Connection != null)
-                                        taskTran.Rollback();
+                        }
+                        catch (SqlException se)
+                        {
+                            if (SqlConnectionExtensions.TransientErrors.Contains(se.Number))
+                            {
+                                if (taskTran.Connection != null)
+                                    taskTran.Rollback();
 
-                                    waitTime = attempts * delay;
+                                waitTime = attempts * delay;
 
-                                    _logger.Warn($"Task {taskId}: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
-                                    _logger.Warn($"Task {taskId}: [{se.Number}] {se.Message}");
-                                    
-                                    Task.Delay(waitTime * 1000).Wait();
-                                } else {
-                                    _logger.Error($"Task {taskId}: [{se.Number}] {se.Message}");
-                                    throw;
-                                }                                
+                                _logger.Warn($"Task {taskId}: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
+                                _logger.Warn($"Task {taskId}: [{se.Number}] {se.Message}");
+
+                                Task.Delay(waitTime * 1000).Wait();
                             }
-                            finally
-                            {                                
-                                sourceReader.Close();
+                            else
+                            {
+                                throw;
                             }
+                        }
+                        finally {
+                            if (taskConn != null) 
+                                taskConn.Close();
+                            if (sourceConnection != null)
+                                sourceConnection.Close();
                         }
                     }
 
                     if (attempts == int.MaxValue)
                     {
-                        if (copyInfo is NoPartitionsCopyInfo)                         
+                        if (copyInfo is NoPartitionsCopyInfo)
                             _logger.Info($"Task {taskId}: Table {copyInfo.TableName} copied.");
-                        else 
+                        else
                             _logger.Info($"Task {taskId}: Table {copyInfo.TableName}, partition {copyInfo.PartitionNumber} copied.");
-                    } 
-                    else 
+                    }
+                    else
                     {
-                        _logger.Error($"Task {taskId}: Table {copyInfo.TableName} copy failed.");                    
+                        _logger.Error($"Task {taskId}: Table {copyInfo.TableName} copy failed.");
                     }
                 }
 
-                _logger.Info($"Task {taskId}: No more items in queue, exiting.");                
+                _logger.Info($"Task {taskId}: No more items in queue, exiting.");
             }
             catch (Exception ex)
             {
+                Interlocked.Add(ref _erroredTasks, 1);
                 _logger.Error($"Task {taskId}: {ex.Message}");
                 var ie = ex.InnerException;
                 while (ie != null)
@@ -643,22 +541,30 @@ namespace SmartBulkCopy
                     _logger.Error($"Task {taskId}: {ex.Message}");
                     ie = ie.InnerException;
                 }
-                _logger.Error($"Task {taskId}: Completed with errors.");                
-            } 
-            finally 
+                _logger.Error($"Task {taskId}: Completed with errors.");
+            }
+            finally
             {
                 string dummy = string.Empty;
                 _activeTasks.Remove(taskId.ToString(), out dummy);
                 _logger.Debug($"Task {taskId}: Removed from ActiveTasks");
                 Interlocked.Add(ref _runningTasks, -1);
-            }            
+            }
         }
 
         private void MonitorCopyProcess()
         {
             while (true)
             {
-                try {
+                try
+                {
+                    var errors = Interlocked.Read(ref _erroredTasks);
+                    if (errors != 0)
+                    {
+                        _logger.Warn("Shutting down monitor due to unhandled errors in running tasks.");
+                        break;
+                    }
+
                     // This needs to be in the loop 'cause instance name will change if database Service Level Objective is changed                    
                     var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=smartbulkcopy_log_monitor");
                     var instance_name = (string)(conn.TryExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));
@@ -680,7 +586,9 @@ namespace SmartBulkCopy
                     var copyingTables = String.Join(',', _activeTasks.Values.Distinct().ToArray());
                     if (copyingTables == "") copyingTables = "None";
                     _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Queue Size {_queue.Count}, Tables being copied: {copyingTables}.");
-                } catch (Exception e) {                    
+                }
+                catch (Exception e)
+                {
                     _logger.Error($"[Monitor]: {e.Message}");
                     break;
                 }
@@ -701,7 +609,7 @@ namespace SmartBulkCopy
                 await conn.OpenAsync();
                 result = true;
                 _logger.Info($"Connection to {builder.DataSource} succeeded.");
-                
+
                 var sku = conn.ExecuteScalar<string>(@"
                     BEGIN TRY
 	                    EXEC('SELECT [service_objective] FROM sys.[database_service_objectives]')
@@ -710,9 +618,12 @@ namespace SmartBulkCopy
 	                    SELECT 'None' AS [service_objective]
                     END CATCH   
                     ");
-                if (sku != "None") {
+                if (sku != "None")
+                {
                     _logger.Info($"Database {builder.DataSource}/{builder.InitialCatalog} is a {sku}.");
-                } else {
+                }
+                else
+                {
                     _logger.Info($"Database {builder.DataSource}/{builder.InitialCatalog} is a VM/On-Prem.");
                 }
             }
@@ -756,18 +667,18 @@ namespace SmartBulkCopy
             }
 
             return result;
-        }  
+        }
 
         private List<String> GetTablesToCopy(IEnumerable<String> sourceList)
         {
             var conn = new SqlConnection(_config.SourceConnectionString);
 
-            var internalTablesToCopy = new List<String>();            
-            foreach(var t in sourceList)
+            var internalTablesToCopy = new List<String>();
+            foreach (var t in sourceList)
             {
-                if (t.Contains("*")) 
+                if (t.Contains("*"))
                 {
-                    _logger.Info("Getting list of tables to copy...");                    
+                    _logger.Info("Getting list of tables to copy...");
                     var tables = conn.Query(@"
                         select 
                             [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
@@ -786,18 +697,21 @@ namespace SmartBulkCopy
                     foreach (var tb in tables)
                     {
                         bool matches = Regex.IsMatch(tb.Name.Replace("[", "").Replace("]", ""), regExPattern); // TODO: Improve wildcard matching
-                        if (matches) {
+                        if (matches)
+                        {
                             _logger.Info($"Adding {tb.Name}...");
                             internalTablesToCopy.Add(tb.Name);
                         }
                     }
-                } else {
+                }
+                else
+                {
                     _logger.Info($"Adding {t}...");
                     internalTablesToCopy.Add(t);
                 }
             }
 
             return internalTablesToCopy;
-        }     
+        }
     }
 }
