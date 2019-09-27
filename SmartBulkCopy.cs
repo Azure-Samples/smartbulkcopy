@@ -606,7 +606,22 @@ namespace SmartBulkCopy
 
                     // This needs to be in the loop 'cause instance name will change if database Service Level Objective is changed                    
                     var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=smartbulkcopy_log_monitor");
-                    var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name = (select top (1) [physical_database_name] from sys.[databases] where [database_id] = db_id())"));
+
+                    var instance_name = (string)(conn.ExecuteScalar(@"
+                        DECLARE @instanceName SYSNAME;
+                        BEGIN TRY
+                            EXECUTE sp_executesql N'SELECT TOP (1) @in=[physical_database_name] FROM sys.[databases] WHERE [database_id] = DB_ID();', N'@in SYSNAME OUTPUT', @in=@instanceName OUTPUT
+                        END TRY
+                        BEGIN CATCH
+                            SET @instanceName = DB_NAME(DB_ID())
+                        END CATCH   
+                        SELECT
+                            instance_name 
+                        FROM
+                            sys.dm_os_performance_counters 
+                        WHERE 
+                            counter_name = 'Log Bytes Flushed/sec' AND instance_name = @instanceName
+                    "));
 
                     string query = $@"
                         declare @v1 bigint, @v2 bigint
