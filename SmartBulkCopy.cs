@@ -486,7 +486,14 @@ namespace SmartBulkCopy
                             sourceConnection.Open();                      
                             var sourceReader = sourceConnection.ExecuteReader(sql, commandTimeout: 0);
 
-                            taskConn = new SqlConnection(_config.DestinationConnectionString + $";Application Name=smartbulkcopy{taskId}");                            
+                            var sbc = new SqlConnectionStringBuilder(_config.DestinationConnectionString);
+                            sbc.ApplicationName = $"smartbulkcopy{taskId}";
+                            
+                            // TODO
+                            // Depending on if connecting to On-Prem/VM or Azure SQL
+                            // ConnectionTimeout should be set automatically to 300 or 90
+
+                            taskConn = new SqlConnection(sbc.ToString());                            
                             taskConn.Open();
                             taskTran = taskConn.BeginTransaction();
 
@@ -599,7 +606,7 @@ namespace SmartBulkCopy
 
                     // This needs to be in the loop 'cause instance name will change if database Service Level Objective is changed                    
                     var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=smartbulkcopy_log_monitor");
-                    var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name like '%-%-%-%-%'"));
+                    var instance_name = (string)(conn.ExecuteScalar($"select instance_name from sys.dm_os_performance_counters where counter_name = 'Log Bytes Flushed/sec' and instance_name = (select top (1) [physical_database_name] from sys.[databases] where [database_id] = db_id())"));
 
                     string query = $@"
                         declare @v1 bigint, @v2 bigint
