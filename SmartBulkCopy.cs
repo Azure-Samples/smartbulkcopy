@@ -609,7 +609,11 @@ namespace SmartBulkCopy
                     }
 
                     // This needs to be in the loop 'cause instance name will change if database Service Level Objective is changed                    
-                    var conn = new SqlConnection(_config.DestinationConnectionString + ";Application Name=smartbulkcopy_log_monitor");
+                    var csb = new SqlConnectionStringBuilder(_config.DestinationConnectionString);
+                    csb.ApplicationName = "smartbulkcopy_log_monitor";
+                    csb.ConnectTimeout = ((attempts + 1) * _delay);
+                    if (csb.ConnectTimeout < 90) csb.ConnectTimeout = 90;
+                    var conn = new SqlConnection(csb.ToString());
 
                     var instance_name = (string)(conn.ExecuteScalar(@"
                         DECLARE @instanceName SYSNAME;
