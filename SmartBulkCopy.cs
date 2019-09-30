@@ -224,10 +224,10 @@ namespace SmartBulkCopy
                     [object_id]
             ";
 
-            _logger.Debug($"Executing: {sql}");
+            _logger.Debug($"Executing: {sql}, @tableName = {tableName}");
 
             var conn = new SqlConnection(_config.SourceConnectionString);
-            var rowCount = conn.ExecuteScalar<int>(sql, new { @tableName = tableName });
+            var rowCount = conn.ExecuteScalar<Int64>(sql, new { @tableName = tableName });
             return (rowCount > _config.BatchSize);
         }
 
@@ -265,7 +265,7 @@ namespace SmartBulkCopy
 
             foreach (var t in _tablesToCopy)
             {
-                _logger.Debug($"Executing: {sql}");
+                _logger.Debug($"Executing: {sql}, @tableName = {t}");
 
                 var ts = connSource.ExecuteScalarAsync<int>(sql, new { @tableName = t });
                 var td = connDest.ExecuteScalarAsync<int>(sql, new { @tableName = t });
@@ -293,16 +293,20 @@ namespace SmartBulkCopy
         {
             var conn = new SqlConnection(_config.SourceConnectionString);
 
-            var isPartitioned = (int)conn.ExecuteScalar($@"
-                    select 
-                        IsPartitioned = case when count(*) > 1 then 1 else 0 end 
-                    from 
-                        sys.dm_db_partition_stats 
-                    where 
-                        [object_id] = object_id(@tableName) 
-                    and 
-                        index_id in (0,1)
-                    ", new { @tableName = tableName });
+            string sql = @"
+                select 
+                    IsPartitioned = case when count(*) > 1 then 1 else 0 end 
+                from 
+                    sys.dm_db_partition_stats 
+                where 
+                    [object_id] = object_id(@tableName) 
+                and 
+                    index_id in (0,1)
+            ";
+            
+            _logger.Debug($"Executing: {sql}, @tableName = {tableName}");
+
+            var isPartitioned = (int)conn.ExecuteScalar(sql, new { @tableName = tableName });
 
             return (isPartitioned == 1);
         }
@@ -332,7 +336,7 @@ namespace SmartBulkCopy
                         [is_column_set] = 0
                     ";
 
-            _logger.Debug($"Executing: {sql}");
+            _logger.Debug($"Executing: {sql}, @tableName = {tableName}");
 
             var columns = conn.Query<string>(sql, new { @tableName = tableName });
 
@@ -356,7 +360,7 @@ namespace SmartBulkCopy
                         index_id in (0,1)
                     ";
 
-            _logger.Debug($"Executing: {sql1}");
+            _logger.Debug($"Executing: {sql1}, @tableName = {tableName}");
 
             var partitionCount = (int)conn.ExecuteScalar(sql1, new { @tableName = tableName });
 
@@ -385,9 +389,9 @@ namespace SmartBulkCopy
                     ic.partition_ordinal = 1
                 ";
 
-            var partitionInfo = conn.QuerySingle(sql2, new { @tableName = tableName });
+            _logger.Debug($"Executing: {sql2}, @tableName = {tableName}");
 
-            _logger.Debug($"Executing: {sql2}");
+            var partitionInfo = conn.QuerySingle(sql2, new { @tableName = tableName });
 
             var columns = GetColumnsForBulkCopy(tableName);
 
