@@ -75,7 +75,7 @@ namespace SmartBulkCopy
                 if (LogicalPartitioningStrategy == LogicalPartitioningStrategy.Size)
                 {
                     if (value < 1) throw new ArgumentException($"{nameof(LogicalPartitions)} size cannot be less than 1 GB");
-                    if (value > 8) throw new ArgumentException($"{nameof(LogicalPartitions)} size be greather than 8 GB");                    
+                    if (value > 8) throw new ArgumentException($"{nameof(LogicalPartitions)} size cannot be greather than 8 GB");                    
                 } 
                 _logicalPartitions = value;
             }

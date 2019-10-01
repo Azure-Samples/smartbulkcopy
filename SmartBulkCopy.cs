@@ -454,7 +454,7 @@ namespace SmartBulkCopy
 
             if (partitionCount % 2 == 0) partitionCount += 1; // Make sure number is odd.
 
-            _logger.Info($"Table {tableName} is NOT partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions.");
+            _logger.Info($"Table {tableName} is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions.");
             _logger.Debug($"Table {tableName} logical partitions size: Rows={tableSize.RowCount / partitionCount}, GB={(double)tableSize.SizeInGB / (double)partitionCount:0.00}");
 
             foreach (var n in Enumerable.Range(1, (int)partitionCount))
