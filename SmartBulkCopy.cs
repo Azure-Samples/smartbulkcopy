@@ -58,6 +58,7 @@ namespace SmartBulkCopy
 
             _logger.Info($"Using up to {_config.MaxParallelTasks} parallel tasks to copy data between databases.");
             _logger.Info($"Batch Size is set to: {_config.BatchSize}.");
+            _logger.Info($"Logical Partition Strategy: {_config.LogicalPartitioningStrategy}");
 
             if (_config.TruncateTables)
                 _logger.Info("Destination tables will be truncated.");
@@ -122,9 +123,9 @@ namespace SmartBulkCopy
                 }
 
                 // Check if table is big enough to use partitions
-                var isBigEnough = CheckTableSize(t);
+                var tableSize = GetTableSize(t);
 
-                if (isBigEnough)
+                if (tableSize.RowCount > _config.BatchSize)
                 {
                     // Check if table is partitioned
                     var isPartitioned = CheckIfSourceTableIsPartitioned(t);
@@ -136,7 +137,7 @@ namespace SmartBulkCopy
                     }
                     else
                     {
-                        copyInfo.AddRange(CreateLogicalPartitionedTableCopyInfo(t));
+                        copyInfo.AddRange(CreateLogicalPartitionedTableCopyInfo(t, tableSize));
                     }
                 }
                 else
@@ -209,11 +210,12 @@ namespace SmartBulkCopy
             return result;
         }
 
-        private bool CheckTableSize(string tableName)
+        private TableSize GetTableSize(string tableName)
         {
             string sql = @"
                 select 
-                    sum(row_count) as row_count 
+                    sum(row_count) as row_count,
+                    (sum(used_page_count) * 8) / 1024. / 1024 as size_gb
                 from 
                     sys.dm_db_partition_stats 
                 where 
@@ -227,8 +229,8 @@ namespace SmartBulkCopy
             _logger.Debug($"Executing: {sql}, @tableName = {tableName}");
 
             var conn = new SqlConnection(_config.SourceConnectionString);
-            var rowCount = conn.ExecuteScalar<Int64>(sql, new { @tableName = tableName });
-            return (rowCount > _config.BatchSize);
+            var qr = conn.QuerySingle(sql, new { @tableName = tableName });            
+            return new TableSize() { RowCount = (long)(qr.row_count), SizeInGB = (int)(qr.size_gb) };
         }
 
         private bool CheckDatabaseSnapshot()
@@ -410,15 +412,46 @@ namespace SmartBulkCopy
             return copyInfo;
         }
 
-        private List<CopyInfo> CreateLogicalPartitionedTableCopyInfo(string tableName)
+        private List<CopyInfo> CreateLogicalPartitionedTableCopyInfo(string tableName, TableSize tableSize)
         {
-            _logger.Info($"Table {tableName} is NOT partitioned. Bulk copy will be parallelized using {_config.LogicalPartitions} logical partitions.");
-
             var copyInfo = new List<CopyInfo>();
 
             var columns = GetColumnsForBulkCopy(tableName);
 
-            foreach (var n in Enumerable.Range(1, _config.LogicalPartitions))
+            long partitionCount = 1;
+
+            _logger.Debug($"Table {tableName}: RowCount={tableSize.RowCount}, SizeInGB={tableSize.SizeInGB}");
+
+            switch(_config.LogicalPartitioningStrategy)
+            {
+                case LogicalPartitioningStrategy.Auto:                    
+                    partitionCount = tableSize.SizeInGB;                    
+                    if (partitionCount < 7) partitionCount = 7;
+                    if (partitionCount > 101) partitionCount = 101;
+                    var rowsPerPartition = tableSize.RowCount / partitionCount;
+                    _logger.Debug($"Table {tableName}: targeting {partitionCount} partitions, with {rowsPerPartition} rows per partition.");
+                    if (rowsPerPartition < _config.BatchSize) {                        
+                        partitionCount = tableSize.RowCount / _config.BatchSize;
+                        if (partitionCount < 3) partitionCount = 3;
+                        if (partitionCount > 101) partitionCount = 101;
+                        rowsPerPartition = tableSize.RowCount / partitionCount;
+                        _logger.Debug($"Table {tableName}: adjusting to {partitionCount} partitions, with {rowsPerPartition} rows per partition.");                        
+                    }
+                    break;
+                case LogicalPartitioningStrategy.Size:
+                    partitionCount = tableSize.SizeInGB / _config.LogicalPartitions;
+                    break;
+                case LogicalPartitioningStrategy.Count:
+                    partitionCount = _config.LogicalPartitions;
+                    break;
+            } 
+
+            if (partitionCount % 2 == 0) partitionCount += 1; // Make sure number is odd.
+
+            _logger.Info($"Table {tableName} is NOT partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions.");
+            _logger.Debug($"Table {tableName} logical partitions size: Rows={tableSize.RowCount / partitionCount}, GB={(double)tableSize.SizeInGB / (double)partitionCount:0.00}");
+
+            foreach (var n in Enumerable.Range(1, (int)partitionCount))
             {
                 var cp = new LogicalPartitionCopyInfo();
                 cp.PartitionNumber = n;
@@ -792,5 +825,10 @@ namespace SmartBulkCopy
 
             return internalTablesToCopy;
         }
-    }
+    
+        private class TableSize {
+            public long RowCount;
+            public int SizeInGB;
+        }
+    }    
 }

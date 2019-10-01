@@ -20,6 +20,12 @@ namespace SmartBulkCopy
         ReadOnly
     }
 
+    enum LogicalPartitioningStrategy {
+        Auto,
+        Size,
+        Count
+    }
+
     class SmartBulkCopyConfiguration 
     {
         public string SourceConnectionString;
@@ -44,23 +50,33 @@ namespace SmartBulkCopy
                 return _maxParallelTasks;
             }
             set {
-                if (value < 1) throw new ArgumentException($"{nameof(MaxParallelTasks)}cannot be less than 1");
+                if (value < 1) throw new ArgumentException($"{nameof(MaxParallelTasks)} cannot be less than 1");
                 if (value > 32) throw new ArgumentException($"{nameof(MaxParallelTasks)} cannot be greather than 32");
                 _maxParallelTasks = value;
             }
         }
 
-        private int _logicalPartitions = 7;
+        private int _logicalPartitions = 1;
         public int LogicalPartitions  {
             get {
                 return _logicalPartitions;
             }
             set {
-                if (value < 1) throw new ArgumentException($"{nameof(LogicalPartitions)} cannot be less than 1");
-                if (value > 32) throw new ArgumentException($"{nameof(LogicalPartitions)} cannot be greather than 32");
+                if (LogicalPartitioningStrategy == LogicalPartitioningStrategy.Count)
+                {
+                    if (value < 1) throw new ArgumentException($"{nameof(LogicalPartitions)} count cannot be less than 1");
+                    if (value > 128) throw new ArgumentException($"{nameof(LogicalPartitions)} count cannot be greather than 128");                    
+                } 
+                if (LogicalPartitioningStrategy == LogicalPartitioningStrategy.Size)
+                {
+                    if (value < 1) throw new ArgumentException($"{nameof(LogicalPartitions)} size cannot be less than 1 GB");
+                    if (value > 8) throw new ArgumentException($"{nameof(LogicalPartitions)} size be greather than 8 GB");                    
+                } 
                 _logicalPartitions = value;
             }
         }
+
+        public LogicalPartitioningStrategy LogicalPartitioningStrategy = LogicalPartitioningStrategy.Auto;
 
         public bool TruncateTables = false;
 
@@ -89,12 +105,32 @@ namespace SmartBulkCopy
             sbcc.SourceConnectionString = config["source:connection-string"];
             sbcc.DestinationConnectionString = config["destination:connection-string"];
             sbcc.BatchSize = int.Parse(config?["options:batch-size"] ?? sbcc.BatchSize.ToString());
-            sbcc.LogicalPartitions = int.Parse(config?["options:logical-partitions"] ?? sbcc.LogicalPartitions.ToString());
             sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
             sbcc.RetryMaxAttempt = int.Parse(config?["options:retry-connection:max-attempt"] ?? sbcc.RetryMaxAttempt.ToString());
             sbcc.RetryDelayIncrement = int.Parse(config?["options:retry-connection:delay-increment"] ?? sbcc.RetryDelayIncrement.ToString());
             
+            var logicalPartitions = (config?["options:logical-partitions"] ?? String.Empty).ToLower().Trim();
+            int logicalPartitionSizeOrCount = 0;
+            if (logicalPartitions == string.Empty || logicalPartitions == "auto")
+            {
+                    sbcc.LogicalPartitioningStrategy = LogicalPartitioningStrategy.Auto;
+            } 
+            else if (logicalPartitions.EndsWith("gb"))
+            {
+                sbcc.LogicalPartitions = int.Parse(logicalPartitions.Replace("gb", string.Empty));
+                sbcc.LogicalPartitioningStrategy = LogicalPartitioningStrategy.Size;
+            }
+            else if (int.TryParse(logicalPartitions, out logicalPartitionSizeOrCount))
+            {
+                sbcc.LogicalPartitions = logicalPartitionSizeOrCount;
+                sbcc.LogicalPartitioningStrategy = LogicalPartitioningStrategy.Count;
+            }
+            else {
+                throw new ArgumentException("Option logical-partitions can only contain \"auto\", or a number (eg: 7) or a size in GB (eg: 10GB)");
+            }
+            
+                
             var safeCheck = config?["options:safe-check"];
             if (!string.IsNullOrEmpty(safeCheck))
             {
