@@ -61,7 +61,12 @@ namespace SmartBulkCopy
             get {
                 return _logicalPartitions;
             }
-            set {
+            set 
+            {
+                if (LogicalPartitioningStrategy == LogicalPartitioningStrategy.Auto)
+                {
+                    throw new ArgumentException("Cannot set LogicalPartitions when LogicalPartitionStrategy is set to \"Auto\"");
+                }
                 if (LogicalPartitioningStrategy == LogicalPartitioningStrategy.Count)
                 {
                     if (value < 1) throw new ArgumentException($"{nameof(LogicalPartitions)} count cannot be less than 1");
@@ -76,7 +81,20 @@ namespace SmartBulkCopy
             }
         }
 
-        public LogicalPartitioningStrategy LogicalPartitioningStrategy = LogicalPartitioningStrategy.Auto;
+        private LogicalPartitioningStrategy _logicalPartitioningStrategy = LogicalPartitioningStrategy.Auto;
+
+        public LogicalPartitioningStrategy LogicalPartitioningStrategy {
+            get {
+                return _logicalPartitioningStrategy;
+            } 
+            set {
+                _logicalPartitioningStrategy = value;
+
+                // force check for logical partition value correctness
+                if (_logicalPartitioningStrategy != LogicalPartitioningStrategy.Auto)
+                    LogicalPartitions = _logicalPartitions; 
+            }
+        }
 
         public bool TruncateTables = false;
 
@@ -118,13 +136,13 @@ namespace SmartBulkCopy
             } 
             else if (logicalPartitions.EndsWith("gb"))
             {
-                sbcc.LogicalPartitions = int.Parse(logicalPartitions.Replace("gb", string.Empty));
                 sbcc.LogicalPartitioningStrategy = LogicalPartitioningStrategy.Size;
+                sbcc.LogicalPartitions = int.Parse(logicalPartitions.Replace("gb", string.Empty));                
             }
             else if (int.TryParse(logicalPartitions, out logicalPartitionSizeOrCount))
             {
-                sbcc.LogicalPartitions = logicalPartitionSizeOrCount;
                 sbcc.LogicalPartitioningStrategy = LogicalPartitioningStrategy.Count;
+                sbcc.LogicalPartitions = logicalPartitionSizeOrCount;                
             }
             else {
                 throw new ArgumentException("Option logical-partitions can only contain \"auto\", or a number (eg: 7) or a size in GB (eg: 10GB)");
