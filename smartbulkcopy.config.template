@@ -7,8 +7,8 @@
     },
     "tables": ["*"],
     "options": {
-        "tasks": 7,
-        "logical-partitions": 7,
+        "tasks": 8,
+        "logical-partitions": "auto",
         "batch-size": 100000,
         "truncate-tables": true,
         "safe-check": "readonly",
