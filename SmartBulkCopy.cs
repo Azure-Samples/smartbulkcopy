@@ -437,7 +437,7 @@ namespace SmartBulkCopy
                     // If table is small in size but has a lot of rows
                     if (tableSize.SizeInGB < 1 && tableSize.RowCount > _config.BatchSize)
                     {
-                        partitionCount = tableSize.RowCount / _config.BatchSize;
+                        partitionCount = tableSize.RowCount / (_config.BatchSize * 10);
                     }
                                     
                     var maxPartitions = _config.MaxParallelTasks * 3;
@@ -454,8 +454,9 @@ namespace SmartBulkCopy
 
             if (partitionCount % 2 == 0) partitionCount += 1; // Make sure number is odd.
 
-            _logger.Info($"Table {tableName} is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions.");
-            _logger.Debug($"Table {tableName} logical partitions size: Rows={tableSize.RowCount / partitionCount}, GB={(double)tableSize.SizeInGB / (double)partitionCount:0.00}");
+            var ps = (double)tableSize.SizeInGB / (double)partitionCount;
+            var pc = (double)tableSize.RowCount / (double)partitionCount;
+            _logger.Info($"Table {tableName} is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions (Size: {ps:0.00}, Rows: {pc:0.00}).");            
 
             foreach (var n in Enumerable.Range(1, (int)partitionCount))
             {
