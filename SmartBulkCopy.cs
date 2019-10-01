@@ -61,6 +61,10 @@ namespace SmartBulkCopy
             _logger.Info($"Using up to {_config.MaxParallelTasks} parallel tasks to copy data between databases.");
             _logger.Info($"Batch Size is set to: {_config.BatchSize}.");
             _logger.Info($"Logical Partition Strategy: {_config.LogicalPartitioningStrategy}");
+            if (_config.LogicalPartitioningStrategy != LogicalPartitioningStrategy.Auto)
+            {
+                _logger.Info($"Logical Partitions: {_config.LogicalPartitions}");
+            }
 
             if (_config.TruncateTables)
                 _logger.Info("Destination tables will be truncated.");
