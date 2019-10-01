@@ -271,13 +271,13 @@ namespace SmartBulkCopy
             {
                 _logger.Debug($"Executing: {sql}, @tableName = {t}");
 
-                var ts = connSource.ExecuteScalarAsync<int>(sql, new { @tableName = t });
-                var td = connDest.ExecuteScalarAsync<int>(sql, new { @tableName = t });
+                var ts = connSource.ExecuteScalarAsync<long>(sql, new { @tableName = t });
+                var td = connDest.ExecuteScalarAsync<long>(sql, new { @tableName = t });
 
                 await Task.WhenAll(ts, td);
 
-                int sourceRows = await ts;
-                int destRows = await td;
+                var sourceRows = await ts;
+                var destRows = await td;
 
                 if (sourceRows == destRows)
                 {
