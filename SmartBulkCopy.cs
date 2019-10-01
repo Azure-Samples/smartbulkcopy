@@ -25,7 +25,9 @@ namespace SmartBulkCopy
         // Added Error Code 10065 to handle transient network errors
         // Added Error Code 10060 to handle transient network errors
         // Added Error Code 121 to handle transient network errors
-        private readonly List<int> _transientErrors = new List<int>() { 0, 53, 121, 4891, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920, 10054, 11001, 10065, 10060, 10051};
+        // Added Error Code 258 to handle transient login erros
+
+        private readonly List<int> _transientErrors = new List<int>() { 0, 53, 121, 258, 4891, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920, 10054, 11001, 10065, 10060, 10051};
         private int _maxAttempts = 5;
         private int _delay = 10; // seconds
         private readonly ILogger _logger;
@@ -434,8 +436,9 @@ namespace SmartBulkCopy
                         partitionCount = tableSize.RowCount / _config.BatchSize;
                     }
                                     
+                    var maxPartitions = _config.MaxParallelTasks * 3;
                     if (partitionCount < 3) partitionCount = 3;
-                    if (partitionCount > 101) partitionCount = 101;                    
+                    if (partitionCount > maxPartitions) partitionCount = maxPartitions;                    
                     break;
                 case LogicalPartitioningStrategy.Size:
                     partitionCount = tableSize.SizeInGB / _config.LogicalPartitions;
