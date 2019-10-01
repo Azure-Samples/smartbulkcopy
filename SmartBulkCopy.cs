@@ -125,7 +125,7 @@ namespace SmartBulkCopy
                 // Check if table is big enough to use partitions
                 var tableSize = GetTableSize(t);
 
-                if (tableSize.RowCount > _config.BatchSize)
+                if (tableSize.RowCount > _config.BatchSize || tableSize.SizeInGB > 1)
                 {
                     // Check if table is partitioned
                     var isPartitioned = CheckIfSourceTableIsPartitioned(t);
@@ -425,18 +425,17 @@ namespace SmartBulkCopy
             switch(_config.LogicalPartitioningStrategy)
             {
                 case LogicalPartitioningStrategy.Auto:                    
-                    partitionCount = tableSize.SizeInGB;                    
-                    if (partitionCount < 7) partitionCount = 7;
-                    if (partitionCount > 101) partitionCount = 101;
-                    var rowsPerPartition = tableSize.RowCount / partitionCount;
-                    _logger.Debug($"Table {tableName}: targeting {partitionCount} partitions, with {rowsPerPartition} rows per partition.");
-                    if (rowsPerPartition < _config.BatchSize) {                        
+                    // One partition per GB
+                    partitionCount = tableSize.SizeInGB;            
+
+                    // If table is small in size but has a lot of rows
+                    if (tableSize.SizeInGB < 1 && tableSize.RowCount > _config.BatchSize)
+                    {
                         partitionCount = tableSize.RowCount / _config.BatchSize;
-                        if (partitionCount < 3) partitionCount = 3;
-                        if (partitionCount > 101) partitionCount = 101;
-                        rowsPerPartition = tableSize.RowCount / partitionCount;
-                        _logger.Debug($"Table {tableName}: adjusting to {partitionCount} partitions, with {rowsPerPartition} rows per partition.");                        
                     }
+                                    
+                    if (partitionCount < 3) partitionCount = 3;
+                    if (partitionCount > 101) partitionCount = 101;                    
                     break;
                 case LogicalPartitioningStrategy.Size:
                     partitionCount = tableSize.SizeInGB / _config.LogicalPartitions;
@@ -456,7 +455,7 @@ namespace SmartBulkCopy
                 var cp = new LogicalPartitionCopyInfo();
                 cp.PartitionNumber = n;
                 cp.TableName = tableName;
-                cp.LogicalPartitionsCount = _config.LogicalPartitions;
+                cp.LogicalPartitionsCount = (int)partitionCount;
                 cp.Columns.AddRange(columns);
 
                 copyInfo.Add(cp);
