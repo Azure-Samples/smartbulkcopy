@@ -30,16 +30,21 @@ If the configuration file specify a value greater than 1 for `logical-partitions
 SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-partitions-count> = <n>
 ```
 
-*PLEASE NOTE* that the physical position of a row may change at any time if there is any activity on the database (updates, index reorgs) so it is recommended that this approach is used only in two cases:
+*PLEASE NOTE* that the physical position of a row may change at any time if there is any activity on the database (updates, index reorgs) so it is recommended that this approach is used only in three cases:
 
 1. You're absolutely sure there is no activity of any kind on the source database, or
 2. You're using a database snapshot as the source database
+3. You're using a database set in READ_ONLY mode
 
 ## How to use it
 
 Download or clone the repository, make sure you have .NET Core 2.1 installed and then create a `smartbulkcopy.config` file from the provided `smartbulkcopy.config.template`. If you want to start right away just provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
 
 [Create a Database Snapshot](https://docs.microsoft.com/en-us/sql/relational-databases/databases/create-a-database-snapshot-transact-sql?view=sql-server-2017)
+
+Or database is set to be in Read-Only mode:
+
+[Setting the database to READ_ONLY](https://docs.microsoft.com/en-us/sql/t-sql/statements/alter-database-transact-sql-set-options?view=sql-server-2017#b-setting-the-database-to-read_only)
 
 Then just run:
 
@@ -75,9 +80,16 @@ You can fine tune Smart Bulk copy behaviour with the configuration settings avai
 
 Define how many parallel task will move data from source to destination. Smart Bulk Copy usesa Concurrent Queue behind the scenes that is filled will all the partition that must be copied. Then as many as `tasks` are created and each of of those will dequeue work as fast as possibile. How many task you want or can have depends on how much bandwidth you have and how much resources are available in the destination. Maximum value is 32.
 
-`"logical-partitions": 7`
+`"logical-partitions": "auto"`
 
-In case a table is not physically partitioned, this number is used to create the logical partitions as described before. As a general rule tt least the same amout of tasks is recommended in order to maximize throughput, but you need to tune it depending on how big your table is and how fast your destination server can do the bulk load.
+In case a table is not physically partitioned, this option is used to create the logical partitions as described before. As a general rule at least the same amout of tasks is recommended in order to maximize throughput, but you need to tune it depending on how big your table is and how fast your destination server can do the bulk load.
+There are three values supported by `logical-partitions`:
+
+- `"auto"`: will try to automatically set the correct number of logical partitions per table, taking into account both row count and table size
+- `"8gb"`: a string with a number followed by `gb` will be interpreted as the maximum size, in GB, that you want the logical partitions to be. Usually big partitions size (up to 8gb) provides better throughput, but with unreliable network connections remember that in case of transaction failure, the entire partition needs be reloaded
+- `7`: a number will be interpreted as the number of logical partition you want to create.
+
+Logical partitions will alwasy be rounded to the next odd number (as this will create a better distribution across all partitions)
 
 `"batch-size": 100000`
 
@@ -87,7 +99,7 @@ If you're unsure of what value you should use, leave the suggested 100000.
 
 `"truncate-tables": true`
 
-Instruct Smart Bulk Coy to truncate tables on the destination before loading them.
+Instruct Smart Bulk Coy to truncate tables on the destination before loading them. This requires that destination table doesn't have any Foreign Key constraint: [TRUNCATE TABLE - Restrictions])https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions) 
 
 `"safe-check": "readonly"`
 
@@ -95,8 +107,7 @@ Check that source database is actually a database snapshot or that database is s
 
 ## Notes on Azure SQL
 
-Azure SQL is log-rated as described in [Transaction Log Rate Governance](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server#transaction-log-rate-governance) and it can do 96 MB/sec of log flushing. Smart Bulk Load will report the detected log flush speed every 5 seconds so that you can check if you can actually increase the number of parallel task to go faster or you're already at the limit. Please remember that 96 MB/Sec are done with higher SKU, so if you're already using 7 parallel tasks and you
-re not seeing something close to 96 MB/Sec please check that
+Azure SQL is log-rated as described in [Transaction Log Rate Governance](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server#transaction-log-rate-governance) and it can do 96 MB/sec of log flushing. Smart Bulk Load will report the detected log flush speed every 5 seconds so that you can check if you can actually increase the number of parallel task to go faster or you're already at the limit. Please remember that 96 MB/Sec are done with higher SKU, so if you're already using 7 parallel tasks and you're not seeing something close to 96 MB/Sec please check that
 
 1. You have enough bandwidth (this should not be a problem if you're copying data from cloud to cloud)
 2. You're not using some very low SKU (like P1 or lower or just 2 vCPU). In this case move to an higher SKU for the bulk load duration.
@@ -113,6 +124,21 @@ SmartBulkCopy only copies data between existing database and existings objects. 
 
 - [Database Migration Assistant](https://docs.microsoft.com/en-us/sql/dma/dma-overview?view=sql-server-2017)
 - [mssql-scritper](https://github.com/microsoft/mssql-scripter)
+
+### How can I make sure I moving data as fast as possibile?
+
+Remember that Azure SQL cannot go faster that ~100 MB/sec due to log rate governance. The best practices to quickly load data into a table can be found here:
+
+- [Prerequisites for Minimal Logging in Bulk Import](https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import?view=sql-server-2017)
+- Old but still applicable: [The Data Loading Performance Guide](https://docs.microsoft.com/en-us/previous-versions/sql/sql-server-2008/dd425070(v=sql.100)?redirectedfrom=MSDN)
+
+In summary, before starting the copy process, make sure that, for the table that will be copied:
+
+- Tables must be empty
+- Drop any Foreign Key Constraint 
+- Drop any Index 
+
+Recreate Foreign Key constrints and indexes after the data has been copied successfully.
 
 ### I would change the code here and there, can I?
 
