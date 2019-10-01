@@ -148,7 +148,8 @@ Sure feel free to contribute! I created this tool just with the goal to get the 
 
 This tool has been tested agains the following sample database with success:
 
-- TPC-H
+- TPC-H (1)
+- TPC-E (1)
 - AdventureWorks2012 (1)
 - AdventureWorks2014 (1)
 - AdventureWorksDW2012 (1)
