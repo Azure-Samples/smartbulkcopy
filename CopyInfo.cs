@@ -56,7 +56,7 @@ namespace SmartBulkCopy
         public override string GetPredicate()
         {
             if (LogicalPartitionsCount > 1)
-                return $"ABS(CAST(%%PhysLoc%% AS BIGINT)) % {LogicalPartitionsCount} = {PartitionNumber - 1}";
+                return $"ABS(CAST(%%PhysLoc%% AS BIGINT)) % {LogicalPartitionsCount} = {PartitionNumber - 1} OPTION (MAXDOP 1)";
             else
                 return String.Empty;
         }
