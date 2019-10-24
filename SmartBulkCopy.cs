@@ -748,7 +748,7 @@ namespace SmartBulkCopy
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error while opening connection.");
+                _logger.Error(ex, $"Error while opening connection on '{builder.DataSource}'.");
             }
             finally
             {
