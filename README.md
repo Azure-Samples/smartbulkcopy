@@ -123,7 +123,7 @@ There is on official documentation, but from all my test the answer is YES. I've
 SmartBulkCopy only copies data between existing database and existings objects. It will NOT create database or tables for you. This allows you to have full control on how database and tables are created. If you are migrating your database and you'll like to have the schema automatically created for you, you can use one of the two following tool:
 
 - [Database Migration Assistant](https://docs.microsoft.com/en-us/sql/dma/dma-overview?view=sql-server-2017)
-- [mssql-scritper](https://github.com/microsoft/mssql-scripter)
+- [mssql-scripter](https://github.com/microsoft/mssql-scripter)
 
 ### How can I make sure I moving data as fast as possibile?
 
