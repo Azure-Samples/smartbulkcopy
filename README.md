@@ -52,7 +52,7 @@ Then just run:
 dotnet run
 ```
 
-and Smart Bulk Copy will start to copy data from source database to destination database. Please keep in mind that *all destination tables will be truncated by default*. This means that Foreign key constraints dropped in the destination database before copying. Read more about `TRUNCATE TABLE` restrictions here: [TRUNCATE TABLE (Transact-SQL)](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions)
+and Smart Bulk Copy will start to copy data from source database to destination database. Please keep in mind that *all destination tables will be truncated by default*. This means that Foreign key constraints dropped in the destination database before copying. Read more about `TRUNCATE TABLE` restrictions here: [TRUNCATE TABLE](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions)
 
 ## Configuration Notes
 
