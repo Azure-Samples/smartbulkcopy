@@ -99,7 +99,7 @@ If you're unsure of what value you should use, leave the suggested 100000.
 
 `"truncate-tables": true`
 
-Instruct Smart Bulk Coy to truncate tables on the destination before loading them. This requires that destination table doesn't have any Foreign Key constraint: [TRUNCATE TABLE - Restrictions])https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions) 
+Instruct Smart Bulk Coy to truncate tables on the destination before loading them. This requires that destination table doesn't have any Foreign Key constraint: [TRUNCATE TABLE - Restrictions](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions) 
 
 `"safe-check": "readonly"`
 
