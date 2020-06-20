@@ -14,16 +14,29 @@ using System.Text.RegularExpressions;
 
 namespace SmartBulkCopy
 {
-    public class ClusteredIndexInfo
+
+    public class TableOrderInfo
     {
-        public List<IndexColumn> IndexColumns = new List<IndexColumn>();
+        public List<SortColumn> SortColumns = new List<SortColumn>();
+
+        public bool IsFound => SortColumns.Count > 0;
+
+        public string GetPartitionOrderBy()
+        {
+            var orderList = from c in SortColumns 
+                        where c.OrdinalPosition == 0
+                        orderby c.OrdinalPosition
+                        select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
+    
+            return string.Join(",", orderList);
+        }
 
         public string GetOrderBy(bool excludePartitionColumn = true)
         {           
             int op = 0;
             if (excludePartitionColumn == true) op = -1;
 
-            var orderList = from c in IndexColumns 
+            var orderList = from c in SortColumns 
                         where c.OrdinalPosition != op
                         orderby c.OrdinalPosition
                         select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
@@ -32,17 +45,25 @@ namespace SmartBulkCopy
         }
     }
 
-    public class IndexColumn {
+    public class SortColumn {
         public string ColumnName;
         public int OrdinalPosition;
         public bool IsDescending;
+    }
+
+    enum OrderHintType
+    {
+        None,
+        ClusteredIndex,
+        PartionKeyOnly
     }
 
     abstract class CopyInfo
     {
         public string TableName;
         public List<string> Columns = new List<string>();
-        public ClusteredIndexInfo ClusteredIndex = new ClusteredIndexInfo();
+        public TableOrderInfo OrderInfo = new TableOrderInfo();
+        public OrderHintType OrderHintType = OrderHintType.None;
         public int PartitionNumber;
         public abstract string GetPredicate();
         public string GetSelectList()
@@ -51,7 +72,7 @@ namespace SmartBulkCopy
         }
         public string GetOrderBy()
         {           
-            return ClusteredIndex.GetOrderBy(excludePartitionColumn:true);
+            return OrderInfo.GetOrderBy(excludePartitionColumn:true);
         }
     }
 
