@@ -140,6 +140,8 @@ In summary, before starting the copy process, make sure that, for the table that
 
 Recreate Foreign Key constrints and indexes after the data has been copied successfully.
 
+From version 1.6 performance of copying data into a non-partitioned table with an existing clustered index (but no other indexes) has been improved, but still copying into an heap is much faster as it can happen in parallel.
+
 ### I would change the code here and there, can I?
 
 Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possibile. Code can be largely improved even, if I tried to apply some of the best practies, but when I had to make some choice I chose simplicity over everything else.
