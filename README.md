@@ -2,11 +2,11 @@
 
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
-It can be used ot efficiently and quickly move data from two instances of SQL Server running in two different cloud providers or to move from on-premises to the cloud.
+It can be used to efficiently and quickly move data from two instances of SQL Server running in two different cloud providers or to move from on-premises to the cloud.
 
 ## How it works
 
-Smart Bulk Copy usese [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/api/system.data.sqlclient.sqlbulkcopy) with parallel tasks. A source table is split in partitions, and each parition is copied in parallel with other, up to a defined maxium, in order to use all the available bandwidth and all the cloud or server resources available to minimize the load times.
+Smart Bulk Copy usese [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/api/system.data.sqlclient.sqlbulkcopy) with parallel tasks. A source table is split in partitions, and each partition is copied in parallel with others, up to a defined maxium, in order to use all the available bandwidth and all the cloud or server resources available to minimize the load times.
 
 ### Partitioned Source Tables
 
@@ -16,11 +16,11 @@ When a source table is partitioned, it uses the physical partitions to execute s
 SELECT * FROM <sourceTable> WHERE $partition.<partitionFunction>(<partitionColumn>) = <n>
 ```
 
-in parallel and to load, in parallel, data into the destination table. `TABLOCK` options is used on the table to allow fully parallelizable bulk inserts.
+in parallel and to load, always in parallel, data into the destination table. `TABLOCK` options is used - when possible - on the table to allow fully parallelizable bulk inserts.
 
 ### Non-Partitioned Source Tables
 
-If a source table is not partitioned, then Smart Bulk Insert will use the `%%PhysLoc%%` virtual column to logically partition tables into non-overlapping partitions that can be safely read in parallel. `%%PhysLoc%%` is *not* documented, but more info are available here:
+If a source table is not partitioned, then Smart Bulk Copy will use the `%%PhysLoc%%` virtual column to logically partition tables into non-overlapping partitions that can be safely read in parallel. `%%PhysLoc%%` is *not* documented, but more info are available here:
 
 [Where is a record really located?](https://techcommunity.microsoft.com/t5/Premier-Field-Engineering/Where-is-a-record-really-located/ba-p/370972)
 
@@ -30,7 +30,7 @@ If the configuration file specify a value greater than 1 for `logical-partitions
 SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-partitions-count> = <n>
 ```
 
-*PLEASE NOTE* that the physical position of a row may change at any time if there is any activity on the database (updates, index reorgs) so it is recommended that this approach is used only in three cases:
+*PLEASE NOTE* that the physical position of a row may change at any time if there is any activity on the database (updates, index reorgs, etc...) so it is recommended that this approach is used only in three cases:
 
 1. You're absolutely sure there is no activity of any kind on the source database, or
 2. You're using a database snapshot as the source database
@@ -42,7 +42,7 @@ Download or clone the repository, make sure you have .NET Core 2.1 installed and
 
 [Create a Database Snapshot](https://docs.microsoft.com/en-us/sql/relational-databases/databases/create-a-database-snapshot-transact-sql?view=sql-server-2017)
 
-Or database is set to be in Read-Only mode:
+Or that the database is set to be in Read-Only mode:
 
 [Setting the database to READ_ONLY](https://docs.microsoft.com/en-us/sql/t-sql/statements/alter-database-transact-sql-set-options?view=sql-server-2017#b-setting-the-database-to-read_only)
 
@@ -52,11 +52,11 @@ Then just run:
 dotnet run
 ```
 
-and Smart Bulk Copy will start to copy data from source database to destination database. Please keep in mind that *all destination tables will be truncated by default*. This means that Foreign key constraints dropped in the destination database before copying. Read more about `TRUNCATE TABLE` restrictions here: [TRUNCATE TABLE](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions)
+and Smart Bulk Copy will start to copy data from source database to destination database. Please keep in mind that *all destination tables will be truncated by default*. This means that Foreign key constraints must be dropped in the destination database before copying. Read more about `TRUNCATE TABLE` restrictions here: [TRUNCATE TABLE](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions)
 
 ## Configuration Notes
 
-Here's how you can change Smart Bulk Copy configuration to better suits your needs. Everything is convinently found in `smartbulkcopy.config` file. Aside from the obvious source and destination connection strings, here the configuration option you can use:
+Here's how you can change Smart Bulk Copy configuration to better suits your needs. Everything is conviniently found in `smartbulkcopy.config` file. Aside from the obvious source and destination connection strings, here's the configuration options you can use:
 
 ### Tables to copy
 
@@ -72,13 +72,19 @@ An asterisk `*` will be expanded to all tables available in the source database:
 'tables': ['*']
 ```
 
+You can use schema to limit the wildcard scope:
+
+```
+'tables': ['dbo.*']
+```
+
 #### Copy behaviour
 
-You can fine tune Smart Bulk copy behaviour with the configuration settings available in `option` secion:
+You can fine tune Smart Bulk Copy behaviour with the configuration settings available in `option` secion:
 
 `"tasks": 7`
 
-Define how many parallel task will move data from source to destination. Smart Bulk Copy usesa Concurrent Queue behind the scenes that is filled will all the partition that must be copied. Then as many as `tasks` are created and each of of those will dequeue work as fast as possibile. How many task you want or can have depends on how much bandwidth you have and how much resources are available in the destination. Maximum value is 32.
+Define how many parallel task will move data from source to destination. Smart Bulk Copy uses a Concurrent Queue behind the scenes that is filled will all the partition that must be copied. Then as many as `tasks` are created and each of of those will dequeue work as fast as possibile. How many task you want or can have depends on how much bandwidth you have and how much resources are available in the destination. Maximum value is 32.
 
 `"logical-partitions": "auto"`
 
@@ -89,7 +95,7 @@ There are three values supported by `logical-partitions`:
 - `"8gb"`: a string with a number followed by `gb` will be interpreted as the maximum size, in GB, that you want the logical partitions to be. Usually big partitions size (up to 8gb) provides better throughput, but with unreliable network connections remember that in case of transaction failure, the entire partition needs be reloaded
 - `7`: a number will be interpreted as the number of logical partition you want to create.
 
-Logical partitions will alwasy be rounded to the next odd number (as this will create a better distribution across all partitions)
+Logical partitions will always be rounded to the next odd number (as this will create a better distribution across all partitions)
 
 `"batch-size": 100000`
 
@@ -99,7 +105,7 @@ If you're unsure of what value you should use, leave the suggested 100000.
 
 `"truncate-tables": true`
 
-Instruct Smart Bulk Coy to truncate tables on the destination before loading them. This requires that destination table doesn't have any Foreign Key constraint: [TRUNCATE TABLE - Restrictions](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions) 
+Instruct Smart Bulk Copy to truncate tables on the destination before loading them. This requires that destination table doesn't have any Foreign Key constraint: [TRUNCATE TABLE - Restrictions](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions) 
 
 `"safe-check": "readonly"`
 
@@ -110,17 +116,19 @@ Check that source database is actually a database snapshot or that database is s
 Azure SQL is log-rated as described in [Transaction Log Rate Governance](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server#transaction-log-rate-governance) and it can do 96 MB/sec of log flushing. Smart Bulk Load will report the detected log flush speed every 5 seconds so that you can check if you can actually increase the number of parallel task to go faster or you're already at the limit. Please remember that 96 MB/Sec are done with higher SKU, so if you're already using 7 parallel tasks and you're not seeing something close to 96 MB/Sec please check that
 
 1. You have enough bandwidth (this should not be a problem if you're copying data from cloud to cloud)
-2. You're not using some very low SKU (like P1 or lower or just 2 vCPU). In this case move to an higher SKU for the bulk load duration.
+2. You're not using some very low SKU (like P1 or lower or just 2 vCPU). In this case move to an higher SKU for the bulk load duration. 
+
+An exception to what said is the Azure SQL Hyperscale SKU always provide 100 MB/Sec of maximum log throughput, no matter the number of vCores.
 
 ## Questions and Answers
 
 ### Is the physical location of a row really always the same in a Database Snapshot?
 
-There is on official documentation, but from all my test the answer is YES. I've also included a test script that you can use to verify this. IF you discover something different please report it here. I used SQL Server 2017 to run my tests.
+There is no official documentation, but from all my test the answer is YES. I've also included a test script that you can use to verify this. IF you discover something different please report it here. I used SQL Server 2017 to run my tests.
 
 ### How to generate destination database schema?
 
-SmartBulkCopy only copies data between existing database and existings objects. It will NOT create database or tables for you. This allows you to have full control on how database and tables are created. If you are migrating your database and you'll like to have the schema automatically created for you, you can use one of the two following tool:
+Smart Bulk Copy only copies data between existing database and existings objects. It will NOT create database or tables for you. This allows you to have full control on how database and tables are created. If you are migrating your database and you'll like to have the schema automatically created for you, you can use one of the two following tool:
 
 - [Database Migration Assistant](https://docs.microsoft.com/en-us/sql/dma/dma-overview?view=sql-server-2017)
 - [mssql-scripter](https://github.com/microsoft/mssql-scripter)
@@ -140,7 +148,7 @@ In summary, before starting the copy process, make sure that, for the table that
 
 Recreate Foreign Key constrints and indexes after the data has been copied successfully.
 
-From version 1.6 performance of copying data into a non-partitioned table with an existing clustered index (but no other indexes) has been improved, but still copying into an heap is much faster as it can happen in parallel.
+Please note that from version 1.6 performance of copying data into a non-partitioned table with an existing clustered index (but no other indexes) has been improved, but still copying into an heap is much faster as it can happen in parallel.
 
 ### I would change the code here and there, can I?
 
