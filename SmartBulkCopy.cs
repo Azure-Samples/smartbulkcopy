@@ -140,7 +140,7 @@ namespace SmartBulkCopy
                 {
                     orderHintType = OrderHintType.ClusteredIndex;
                 }
-                else if (ciSource.GetPartitionOrderBy() == ciDestination.GetPartitionOrderBy())
+                else if (ciSource.GetPartitionOrderBy() == ciDestination.GetPartitionOrderBy() && !string.IsNullOrEmpty(ciSource.GetPartitionOrderBy()))
                 {
                     orderHintType = OrderHintType.PartionKeyOnly;
                 }
@@ -679,7 +679,6 @@ namespace SmartBulkCopy
                                             bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
                                         }
                                     }
-
                                 }
                                 bulkCopy.BatchSize = _config.BatchSize;
                                 bulkCopy.WriteToServer(sourceReader);
