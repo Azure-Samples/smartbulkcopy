@@ -14,15 +14,44 @@ using System.Text.RegularExpressions;
 
 namespace SmartBulkCopy
 {
+    public class ClusteredIndexInfo
+    {
+        public List<IndexColumn> IndexColumns = new List<IndexColumn>();
+
+        public string GetOrderBy(bool excludePartitionColumn = true)
+        {           
+            int op = 0;
+            if (excludePartitionColumn == true) op = -1;
+
+            var orderList = from c in IndexColumns 
+                        where c.OrdinalPosition != op
+                        orderby c.OrdinalPosition
+                        select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
+    
+            return string.Join(",", orderList);
+        }
+    }
+
+    public class IndexColumn {
+        public string ColumnName;
+        public int OrdinalPosition;
+        public bool IsDescending;
+    }
+
     abstract class CopyInfo
     {
         public string TableName;
         public List<string> Columns = new List<string>();
+        public ClusteredIndexInfo ClusteredIndex = new ClusteredIndexInfo();
         public int PartitionNumber;
         public abstract string GetPredicate();
         public string GetSelectList()
         {
             return "[" + string.Join("],[", this.Columns) + "]";
+        }
+        public string GetOrderBy()
+        {           
+            return ClusteredIndex.GetOrderBy(excludePartitionColumn:true);
         }
     }
 

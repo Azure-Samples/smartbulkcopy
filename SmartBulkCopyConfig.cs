@@ -3,7 +3,6 @@ using System.IO;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Data;
-using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -38,8 +37,8 @@ namespace SmartBulkCopy
         public int BatchSize {
             get { return _batchSize; }
             set {
-                if (value < 1000) throw new ArgumentException($"{nameof(BatchSize)}cannot be less than 1000");
-                if (value > 100000000) throw new ArgumentException($"{nameof(BatchSize)} cannot be greather than 100000000");
+                if (value < 0) throw new ArgumentException($"{nameof(BatchSize)}cannot be less than 0");
+                if (value > Int32.MaxValue) throw new ArgumentException($"{nameof(BatchSize)} cannot be greather than {Int32.MaxValue}");
                 _batchSize = value;
             }
         }
@@ -147,7 +146,6 @@ namespace SmartBulkCopy
             else {
                 throw new ArgumentException("Option logical-partitions can only contain \"auto\", or a number (eg: 7) or a size in GB (eg: 10GB)");
             }
-            
                 
             var safeCheck = config?["options:safe-check"];
             if (!string.IsNullOrEmpty(safeCheck))
