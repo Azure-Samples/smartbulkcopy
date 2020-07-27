@@ -1,3 +1,11 @@
+-- cleanup if we are running it second tinme
+use master
+go
+drop database if exists PhysLocTestSnapshot
+go
+drop database if exists PhysLocTest;
+go
+
 create database PhysLocTest
 go
 
@@ -31,9 +39,15 @@ go
 select * from sys.database_files 
 go
 
-create database PhysLocTestSnapshot on
-(name = 'PhysLocTest', FILENAME = 'D:\_mssql\MSSQL14.MSSQLSERVER\MSSQL\DATA\PhysLocTest_mdf.ss1')
-as snapshot of PhysLocTest
+-- read path dynamically to create snapshot.
+declare @path nvarchar(520)
+declare @CreateDB_str nvarchar(4000)
+select @path = LEFT(physical_name, Len(physical_name) - Charindex('\', Reverse(physical_name))) from sys.database_files  where type = 0
+select @CreateDB_str =
+'create database PhysLocTestSnapshot on
+(name = ''PhysLocTest'', FILENAME = '''+ @path + '\PhysLocTest_mdf.ss1'')
+as snapshot of PhysLocTest'
+exec (@CreateDB_str)
 go
 
 -- Check rows location (File:Page:Slot)
