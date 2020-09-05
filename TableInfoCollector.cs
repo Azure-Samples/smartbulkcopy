@@ -107,16 +107,22 @@ namespace SmartBulkCopy
 
     public class ColumnStoreClusteredIndex: Index
     { 
-        public string PartitionColumn = string.Empty;
-
         public override string GetPartitionBy()
         {
-            return PartitionColumn;
+            if (this.Columns.Count() == 1) return this.Columns.First().ColumnName;
+            return string.Empty;
+        }
+
+        public override string GetOrderBy(bool excludePartitionColumn = true)
+        {                       
+            if (excludePartitionColumn == true) return string.Empty;
+
+            return GetPartitionBy();
         }
 
         public override bool IsPartitioned {
             get {
-                return PartitionColumn != string.Empty;
+                return this.Columns.Count() == 1;
             }
         }
     }
@@ -340,7 +346,10 @@ namespace SmartBulkCopy
                 (
                     select
                         1 as sortKey,
-                        c.name as ColumnName
+                        c.name as ColumnName,
+                        ic.key_ordinal as OrdinalPosition,
+                        ic.is_descending_key as IsDescending,
+                        ic.partition_ordinal as PartitionOrdinal
                     from
                         sys.indexes i
                     left join
@@ -358,7 +367,10 @@ namespace SmartBulkCopy
 
                     select
                         2 as sortKey,
-                        null as ColumnName
+                        null as ColumnName,
+                        null as OrdinalPosition,
+                        null as IsDescending,
+                        null as PartitionOrdinal
                     from
                         sys.indexes i
                     where
@@ -366,12 +378,12 @@ namespace SmartBulkCopy
                     and
                         i.[type] in (5)
                 )
-                select top(1) ColumnName from cte order by sortKey               
+                select top(1) * from cte order by sortKey               
             ";
 
             LogDebug($"Collecting Clustered ColumnStore Info. Executing:\n{sql}");
 
-            var columns = (await _conn.QueryAsync<Column>(sql, new { @tableName = _tableInfo.TableName })).ToList();;
+            var columns = (await _conn.QueryAsync<IndexColumn>(sql, new { @tableName = _tableInfo.TableName })).ToList();;
             
             if (columns.Count() == 1) 
             {
@@ -379,7 +391,7 @@ namespace SmartBulkCopy
 
                 if (columns[0].ColumnName != null)
                 {                    
-                    h.PartitionColumn = columns[0].ColumnName;
+                    h.Columns.Add(columns[0]);
                     LogDebug($"Clustered ColumnStore is Partitioned on: {h.GetPartitionBy()}");                                        
                 }
 

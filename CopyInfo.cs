@@ -23,12 +23,13 @@ namespace SmartBulkCopy
 
     abstract class CopyInfo
     {
-        public TableInfo TableInfo = new UnknownTableInfo();
+        public TableInfo SourceTableInfo = new UnknownTableInfo();
+        public TableInfo DestinationTableInfo = new UnknownTableInfo();
         public OrderHintType OrderHintType = OrderHintType.None;
         public int PartitionNumber;        
 
-        public string TableName => TableInfo?.TableName;
-        public List<string> Columns => TableInfo.Columns;
+        public string TableName => SourceTableInfo?.TableName;
+        public List<string> Columns => SourceTableInfo.Columns;
 
         public abstract string GetPredicate();
         public string GetSelectList()
@@ -37,7 +38,7 @@ namespace SmartBulkCopy
         }
         public string GetOrderBy()
         {           
-            return TableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn:true);
+            return SourceTableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn:true);
         }
     }
 

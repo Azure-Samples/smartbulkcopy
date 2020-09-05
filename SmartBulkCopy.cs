@@ -160,7 +160,7 @@ namespace SmartBulkCopy
                     usePartitioning = true;
                 } else if (sourceTable.PrimaryIndex.IsPartitioned == false && destinationTable.PrimaryIndex is Heap)
                 {
-                    _logger.Info($"{t} |> Sorce is not partitioned but destination is an heap. Parallel load enabled.");
+                    _logger.Info($"{t} |> Source is not partitioned but destination is an heap. Parallel load enabled.");
                     usePartitioning = true;
                 } else if ( 
                         (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned) &&
@@ -170,6 +170,10 @@ namespace SmartBulkCopy
                     _logger.Info($"{t} |> Source and destination tables have compatible partitioning logic. Parallel load enabled.");
                     _logger.Info($"{t} |> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
                     if (sourceTable.PrimaryIndex.GetOrderBy() != string.Empty) _logger.Info($"{t} |> Order By: {sourceTable.PrimaryIndex.GetOrderBy()}");
+                    usePartitioning = true;
+                } else if (destinationTable.PrimaryIndex is ColumnStoreClusteredIndex)
+                {
+                    _logger.Info($"{t} |> Destination is a ColumnStore. Parallel load enabled.");
                     usePartitioning = true;
                 }              
                 else {
@@ -195,6 +199,14 @@ namespace SmartBulkCopy
                         orderHintType = OrderHintType.PartionKeyOnly;
                     }
                 } 
+                if (sourceTable.PrimaryIndex is ColumnStoreClusteredIndex && destinationTable.PrimaryIndex is ColumnStoreClusteredIndex) 
+                {
+                    if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned)
+                    {
+                        _logger.Info($"{t} |> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
+                        orderHintType = OrderHintType.PartionKeyOnly;
+                    }
+                } 
 
                 // Use partitions if that make sense
                 var partitionType = "Unknown";
@@ -211,7 +223,8 @@ namespace SmartBulkCopy
                             var cis = CreatePhysicalPartitionedTableCopyInfo(sourceTable);
                             cis.ForEach(ci =>
                             {
-                                ci.TableInfo = sourceTable;
+                                ci.SourceTableInfo = sourceTable;
+                                ci.DestinationTableInfo = destinationTable;
                                 ci.OrderHintType = orderHintType;
                             });
                             copyInfo.AddRange(cis);
@@ -223,7 +236,8 @@ namespace SmartBulkCopy
                             var cis = CreateLogicalPartitionedTableCopyInfo(sourceTable);
                             cis.ForEach(ci =>
                             {
-                                ci.TableInfo = sourceTable;
+                                ci.SourceTableInfo = sourceTable;
+                                ci.DestinationTableInfo = destinationTable;
                                 ci.OrderHintType = orderHintType;
                             });                            
                             copyInfo.AddRange(cis);
@@ -241,8 +255,9 @@ namespace SmartBulkCopy
                 // and ordered bulk copy                                
                 if (usePartitioning == false)
                 {                    
-                    var ci = new NoPartitionsCopyInfo() { TableInfo = sourceTable };                    
+                    var ci = new NoPartitionsCopyInfo() { SourceTableInfo = sourceTable };                    
                     ci.OrderHintType = orderHintType;
+                    ci.DestinationTableInfo = destinationTable;
                     copyInfo.Add(ci);
                     partitionType = "None";
                 }
@@ -435,7 +450,7 @@ namespace SmartBulkCopy
             {
                 var cp = new PhysicalPartitionCopyInfo();
                 cp.PartitionNumber = n;
-                cp.TableInfo = ti;
+                cp.SourceTableInfo = ti;
                 cp.PartitionColumn = partitionInfo.PartitionColumn;
                 cp.PartitionFunction = partitionInfo.PartitionFunction;                
 
@@ -490,7 +505,7 @@ namespace SmartBulkCopy
             {
                 var cp = new LogicalPartitionCopyInfo();
                 cp.PartitionNumber = n;
-                cp.TableInfo = ti;
+                cp.SourceTableInfo = ti;
                 cp.LogicalPartitionsCount = (int)partitionCount;
                 copyInfo.Add(cp);
             }
@@ -538,9 +553,8 @@ namespace SmartBulkCopy
                     var options = SqlBulkCopyOptions.KeepIdentity |
                                 SqlBulkCopyOptions.KeepNulls;
 
-                    // Tablock should be used only if using logical partitioning      
-                    // and NO indexes are detected/used
-                    if (copyInfo.OrderHintType != OrderHintType.ClusteredIndex)
+                    // TABLOCK can be used only if target is HEAP
+                    if (copyInfo.DestinationTableInfo.PrimaryIndex is Heap)
                     {
                         options |= SqlBulkCopyOptions.TableLock;
                         _logger.Debug($"Task {taskId}: Using TABLOCK");
@@ -595,7 +609,7 @@ namespace SmartBulkCopy
                                 if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
                                 {
                                     _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");                                    
-                                    var oc = copyInfo.TableInfo.PrimaryIndex.Columns.OrderBy(c => c.OrdinalPosition);
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.OrderBy(c => c.OrdinalPosition);
                                     foreach (var ii in oc)
                                     {
                                         bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
@@ -604,14 +618,21 @@ namespace SmartBulkCopy
                                 if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
                                 {
                                     _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
-                                    var oc = copyInfo.TableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
                                     foreach (var ii in oc)
                                     {
                                         bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
                                     }
                                 }
 
-                                bulkCopy.BatchSize = _config.BatchSize;
+                                if (copyInfo.DestinationTableInfo.PrimaryIndex is ColumnStoreClusteredIndex) 
+                                {
+                                    // Make sure Columnstore will have as few rowgroups as possible
+                                    bulkCopy.BatchSize = 1048576;
+                                } else {
+                                    bulkCopy.BatchSize = _config.BatchSize;
+                                }
+                            
                                 bulkCopy.WriteToServer(sourceReader);
                                 attempts = int.MaxValue;
                                 taskTran.Commit();
