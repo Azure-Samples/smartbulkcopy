@@ -127,10 +127,7 @@ namespace SmartBulkCopy
             var copyInfo = new List<CopyInfo>();
             foreach (var t in internalTablesToCopy)
             {
-                // Try to use partitioned load
-                bool usePartitioning = true;
-
-                // Do not use ORDER hint in Bulk Load unless there is a clustered index
+                bool usePartitioning = false;
                 OrderHintType orderHintType = OrderHintType.None;
 
                 var sourceTable = tiSource.Find(p => p.TableName == t);
@@ -176,16 +173,24 @@ namespace SmartBulkCopy
                     usePartitioning = false;
                 }
 
-                // Check if there is a compatible clustered index on the target table
-                // so that ordered bulk load could be used                
+                // Check if ORDER hint can be used to avoid sorting data on the destination
                 if (sourceTable.PrimaryIndex is RowStoreClusteredIndex && destinationTable.PrimaryIndex is RowStoreClusteredIndex)
                 {
-                    orderHintType = OrderHintType.ClusteredIndex;
-                }
-                else if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned)
+                    if (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())                    
+                    {
+                        _logger.Info($"{t} |> Source and destination clustered rowstore index have same ordering. Enabling ORDER hint.");
+                        orderHintType = OrderHintType.ClusteredIndex;
+
+                    }
+                }                 
+                if (sourceTable.PrimaryIndex is Heap && destinationTable.PrimaryIndex is Heap)
                 {
-                    orderHintType = OrderHintType.PartionKeyOnly;
-                }
+                    if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned)
+                    {
+                        _logger.Info($"{t} |> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
+                        orderHintType = OrderHintType.PartionKeyOnly;
+                    }
+                } 
 
                 // Use partitions if that make sense
                 var partitionType = "Unknown";
@@ -578,25 +583,26 @@ namespace SmartBulkCopy
                                 {
                                     bulkCopy.ColumnMappings.Add(c, c);
                                 }
-                                if (copyInfo.TableInfo.PrimaryIndex is RowStoreClusteredIndex)
+                                
+                                if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
                                 {
-                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
-                                    if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
+                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");                                    
+                                    var oc = copyInfo.TableInfo.PrimaryIndex.Columns.OrderBy(c => c.OrdinalPosition);
+                                    foreach (var ii in oc)
                                     {
-                                        foreach (var ii in copyInfo.TableInfo.PrimaryIndex.Columns)
-                                        {
-                                            bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
-                                        }
-                                    }
-                                    if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
-                                    {
-                                        var oc = copyInfo.TableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
-                                        foreach (var ii in oc)
-                                        {
-                                            bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
-                                        }
+                                        bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
                                     }
                                 }
+                                if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
+                                {
+                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
+                                    var oc = copyInfo.TableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
+                                    foreach (var ii in oc)
+                                    {
+                                        bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
+                                    }
+                                }
+
                                 bulkCopy.BatchSize = _config.BatchSize;
                                 bulkCopy.WriteToServer(sourceReader);
                                 attempts = int.MaxValue;

@@ -52,16 +52,22 @@ namespace SmartBulkCopy
 
     public class Heap: Index
     { 
-        public string PartitionColumn = string.Empty;
-
         public override string GetPartitionBy()
         {
-            return PartitionColumn;
+            if (this.Columns.Count() == 1) return this.Columns.First().ColumnName;
+            return string.Empty;
+        }
+
+        public override string GetOrderBy(bool excludePartitionColumn = true)
+        {                       
+            if (excludePartitionColumn == true) return string.Empty;
+
+            return GetPartitionBy();
         }
 
         public override bool IsPartitioned {
             get {
-                return PartitionColumn != string.Empty;
+                return this.Columns.Count() == 1;
             }
         }
     }
@@ -290,7 +296,10 @@ namespace SmartBulkCopy
 
             string sql = @"
                 select
-                    c.name as ColumnName
+                    c.name as ColumnName,
+                    ic.key_ordinal as OrdinalPosition,
+                    ic.is_descending_key as IsDescending,
+                    ic.partition_ordinal as PartitionOrdinal
                 from
                     sys.indexes i
                 left join
@@ -307,15 +316,14 @@ namespace SmartBulkCopy
 
             LogDebug($"Collecting Heap Info. Executing:\n{sql}");
 
-            var columns = (await _conn.QueryAsync<Column>(sql, new { @tableName = _tableInfo.TableName })).ToList();;
+            var columns = (await _conn.QueryAsync<IndexColumn>(sql, new { @tableName = _tableInfo.TableName })).ToList();;
             
             if (columns.Count() == 1) 
-            {
+            {                
                 var h = new Heap();
-
-                if (columns[0].ColumnName != null)
-                {                    
-                    h.PartitionColumn = columns[0].ColumnName;
+                if (columns.First().ColumnName != null)
+                {
+                    h.Columns.Add(columns.First());
                     LogDebug($"Heap is Partitioned on: {h.GetPartitionBy()}");                                        
                 }
 
