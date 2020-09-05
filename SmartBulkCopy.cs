@@ -113,6 +113,17 @@ namespace SmartBulkCopy
             _tablesToCopy.AddRange(internalTablesToCopy);
 
             _logger.Info("Analyzing tables...");
+            var ticSource = new TablesInfoCollector(_config.SourceConnectionString, internalTablesToCopy, _logger);
+            var ticDestination = new TablesInfoCollector(_config.DestinationConnectionString, internalTablesToCopy, _logger);
+   
+            var ti1 = ticSource.CollectTablesInfoAsync();
+            var ti2 = ticDestination.CollectTablesInfoAsync();
+
+            await Task.WhenAll(ti1, ti2);
+
+            var tiSource = await ti1;
+            var tiDestination = await ti2;
+
             var copyInfo = new List<CopyInfo>();
             foreach (var t in internalTablesToCopy)
             {
@@ -120,18 +131,18 @@ namespace SmartBulkCopy
                 bool usePartitioning = true;
 
                 // Check it tables exists
-                if (!await CheckTableExistence(_config.SourceConnectionString, t))
+                if (tiSource.Find(p => p.TableName == t).Exists == false)
                 {
                     _logger.Error($"Table {t} does not exists on source.");
                     return 1;
                 }
-                if (!await CheckTableExistence(_config.DestinationConnectionString, t))
+                if (tiDestination.Find(p => p.TableName == t).Exists == false)
                 {
                     _logger.Error($"Table {t} does not exists on destination.");
                     return 1;
                 }
 
-                // Check if there is a compatibile clustered index on the target table
+                // Check if there is a compatible clustered index on the target table
                 // so that ordered bulk load could be used
                 var ciSource = await GetTableOrderInfo(_config.SourceConnectionString, t);
                 var ciDestination = await GetTableOrderInfo(_config.DestinationConnectionString, t);
@@ -891,36 +902,6 @@ namespace SmartBulkCopy
             return result;
         }
 
-        private async Task<bool> CheckTableExistence(string connectionString, string tableName)
-        {
-            bool result = false;
-            var conn = new SqlConnection(connectionString);
-            try
-            {
-                await conn.QuerySingleAsync(@"select 
-                        [FullName] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
-                    from 
-                        sys.tables t 
-                    inner join 
-                        sys.schemas s on t.[schema_id] = s.[schema_id]
-                    where
-                        s.[name] = PARSENAME(@tableName, 2)
-                    and
-                        t.[name] = PARSENAME(@tableName, 1)", new { @tableName = tableName });
-                result = true;
-            }
-            catch (InvalidOperationException)
-            {
-                result = false;
-            }
-            finally
-            {
-                conn.Close();
-            }
-
-            return result;
-        }
-
         private List<String> GetTablesToCopy(IEnumerable<String> sourceList)
         {
             var conn = new SqlConnection(_config.SourceConnectionString);
@@ -930,7 +911,7 @@ namespace SmartBulkCopy
             {
                 if (t.Contains("*"))
                 {
-                    _logger.Info("Getting list of tables to copy...");
+                    _logger.Info($"Wildcard found: '{t}'. Getting list of tables to copy...");
                     var tables = conn.Query(@"
                         select 
                             [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
@@ -951,7 +932,7 @@ namespace SmartBulkCopy
                         bool matches = Regex.IsMatch(tb.Name.Replace("[", "").Replace("]", ""), regExPattern); // TODO: Improve wildcard matching
                         if (matches)
                         {
-                            _logger.Info($"Adding {tb.Name}...");
+                            _logger.Info($"Adding via wildcard {tb.Name}...");
                             internalTablesToCopy.Add(tb.Name);
                         }
                     }
