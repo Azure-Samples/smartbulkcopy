@@ -36,6 +36,14 @@ SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-pa
 2. You're using a database snapshot as the source database
 3. You're using a database set in READ_ONLY mode
 
+## Heaps, Clustered RowStores, Clustered Columnstores
+
+From version 1.7 Smart Bulk Copy will smartly copy tables with no clustered index (heaps), and tables with clustered index (rowstore or columnstore it does't matter.)
+
+Couple of notes for the Columnstore:
+- Smart Bulk Copy will always use a Batch Size of 1048576 rows, no matter what specified in the configuration, in order to maximize compression and reduce number of rowgroups, as per [best pratices](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups).
+- 
+
 ## How to use it
 
 Download or clone the repository, make sure you have .NET Core 2.1 installed and then create a `smartbulkcopy.config` file from the provided `smartbulkcopy.config.template`. If you want to start right away just provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
@@ -144,11 +152,21 @@ In summary, before starting the copy process, make sure that, for the table that
 
 - Tables must be empty
 - Drop any Foreign Key Constraint 
-- Drop any Index 
+- Drop any Secondary (Non-Clustered) Index 
 
-Recreate Foreign Key constrints and indexes after the data has been copied successfully.
+From version 1.7 if you have a table with a clustered index on it, Smart Bulk Copy will try to copy it as fast as possible, using partitioning if possible and ORDER hint to avoid unnecessary sort. Here's how Smart Bulk Copy will try to load tables based on indexes and partitioning:
 
-Please note that from version 1.6 performance of copying data into a non-partitioned table with an existing clustered index (but no other indexes) has been improved, but still copying into an heap is much faster as it can happen in parallel.
+**Non-Partitioned Tables**
+- *HEAP Table*: Parallel Bulk Load using Logical Partitions
+- *Table with CLUSTERED ROWSTORE*: Single Bulk Load, Ordered by Index Key Columns
+- *Table with CLUSTERED COLUMNSTORE*: Parallel Bulk Load using Logical Partitions
+
+**Partitioned Tables**
+- *HEAP Table*: Parallel Bulk Load using Logical Partitions
+- *Table with CLUSTERED ROWSTORE*: Parallel Bulk Load using Physical Partitions, Ordered by Index Key Columns
+- *Table with CLUSTERED COLUMNSTORE*: Parallel Bulk Load using Physical Partitions
+
+Recreate Foreign Key constraints and indexes after the data has been copied successfully.
 
 ### I would change the code here and there, can I?
 
