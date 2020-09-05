@@ -112,6 +112,13 @@ namespace SmartBulkCopy
 
         public static SmartBulkCopyConfiguration LoadFromConfigFile(string configFile)
         {
+            // If config file is not found, automatically add .json extension
+            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), configFile)))
+            {
+                if (Path.GetExtension(configFile) != ".json")
+                    configFile += ".json";
+            }
+
             var config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile(configFile, optional: false, reloadOnChange: false)
