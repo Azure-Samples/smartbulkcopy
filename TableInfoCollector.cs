@@ -30,11 +30,12 @@ namespace SmartBulkCopy
     {        
         public int OrdinalPosition;
         public bool IsDescending;        
+        public int PartitionOrdinal;
     }
 
     public abstract class Index
     {
-        public virtual List<IndexColumn> Columns => new List<IndexColumn>();
+        public List<IndexColumn> Columns = new List<IndexColumn>();
 
         public virtual string GetOrderBy(bool excludePartitionColumn = true){
             return string.Empty;
@@ -69,11 +70,11 @@ namespace SmartBulkCopy
     {      
         public override string GetOrderBy(bool excludePartitionColumn = true)
         {           
-            int op = 0;
-            if (excludePartitionColumn == true) op = -1;
+            int op = -1;
+            if (excludePartitionColumn == true) op = 1;
 
             var orderList = from c in Columns 
-                        where c.OrdinalPosition != op
+                        where c.PartitionOrdinal != op
                         orderby c.OrdinalPosition
                         select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
     
@@ -83,8 +84,8 @@ namespace SmartBulkCopy
         public override string GetPartitionBy()
         {
             var orderList = from c in Columns 
-                        where c.OrdinalPosition == 0
-                        orderby c.OrdinalPosition
+                        where c.PartitionOrdinal != 0
+                        orderby c.PartitionOrdinal
                         select c.ColumnName;      
     
             return string.Join(",", orderList);
@@ -92,7 +93,7 @@ namespace SmartBulkCopy
 
         public override bool IsPartitioned {
             get {
-                return Columns.Any(c => c.OrdinalPosition == 0);
+                return Columns.Any(c => c.PartitionOrdinal != 0);
             }
         }
 
@@ -277,7 +278,7 @@ namespace SmartBulkCopy
                 LogDebug($"Detected Clustered RowStore Index: {rci.GetOrderBy()}");
                 _tableInfo.PrimaryIndex = rci;
 
-                if (rci.Columns.Any(c => c.OrdinalPosition == 0)) {
+                if (rci.Columns.Any(c => c.PartitionOrdinal != 0)) {
                     LogDebug($"Clustered RowStore Index is Partitioned on: {rci.GetPartitionBy()}");                    
                 }
             }

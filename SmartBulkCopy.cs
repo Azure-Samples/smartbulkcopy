@@ -148,20 +148,32 @@ namespace SmartBulkCopy
                     return 1;
                 }
 
+                // To DO
+                // If destination table has secondary indexes then stop
+
                 // Check if partitioned load is possible
-                if ( 
+                if  (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex is Heap)
+                {
+                    _logger.Info($"{t} |> Source is partitioned and destination is heap. Parallel load enabled.");
+                    _logger.Info($"{t} |> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
+                    usePartitioning = true;
+                } else if (sourceTable.PrimaryIndex is Heap && destinationTable.PrimaryIndex is Heap)
+                {
+                    _logger.Info($"{t} |> Source and destination are not partitioned and both are heaps. Parallel load enabled.");
+                    usePartitioning = true;
+                } else if ( 
                         (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned) &&
                         (sourceTable.PrimaryIndex.GetPartitionBy() == destinationTable.PrimaryIndex.GetPartitionBy()) &&
                         (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())
                     )  {
-                    _logger.Info($"[{t}] Source and destination tables have same partitioning logic. Parallel load enabled.");
+                    _logger.Info($"{t} |> Source and destination tables have compatible partitioning logic. Parallel load enabled.");
+                    _logger.Info($"{t} |> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
+                    if (sourceTable.PrimaryIndex.GetOrderBy() != string.Empty) _logger.Info($"{t} |> Order By: {sourceTable.PrimaryIndex.GetOrderBy()}");
                     usePartitioning = true;
-                } else if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex is Heap)
-                {
-                    _logger.Info($"[{t}] Source is partitioned and destination is heap. Parallel load enabled.");
-                    usePartitioning = true;
-                } else {
-                    _logger.Info($"[{t}] Source and destination table cannot be loaded in parallel.");
+                }              
+                else {
+                    _logger.Info($"{t} |> Source and destination tables cannot be loaded in parallel.");
+                    usePartitioning = false;
                 }
 
                 // Check if there is a compatible clustered index on the target table
@@ -204,15 +216,14 @@ namespace SmartBulkCopy
                             {
                                 ci.TableInfo = sourceTable;
                                 ci.OrderHintType = orderHintType;
-                            });
-                            _logger.Info($"[{t}] Using logical partitioning: clustered index will be ignored, if present.");                            
+                            });                            
                             copyInfo.AddRange(cis);
                             partitionType = "Logical";
                         }
                     }
                     else
                     {
-                        _logger.Info($"[{t}] Table is small, partitioned copy will not be used.");
+                        _logger.Info($"{t} |> Table is small, partitioned copy will not be used.");
                         usePartitioning = false;
                     }
                 }
@@ -227,7 +238,7 @@ namespace SmartBulkCopy
                     partitionType = "None";
                 }
 
-                _logger.Info($"[{t}] Analysis result: usePartioning={usePartitioning}, partitionType={partitionType}, orderHintType={orderHintType}");
+                _logger.Info($"{t} |> Analysis result: usePartioning={usePartitioning}, partitionType={partitionType}, orderHintType={orderHintType}");
             }
 
             _logger.Info("Enqueueing work...");
@@ -382,7 +393,7 @@ namespace SmartBulkCopy
 
             var partitionCount = (int)conn.ExecuteScalar(sql1, new { @tableName = tableName });
 
-            _logger.Info($"[{tableName}] Table is partitioned. Bulk copy will be parallelized using {partitionCount} partition(s).");
+            _logger.Info($"{tableName} |> Table is partitioned. Bulk copy will be parallelized using {partitionCount} partition(s).");
 
             var sql2 = $@"
                 select 
@@ -434,7 +445,7 @@ namespace SmartBulkCopy
 
             long partitionCount = 1;
 
-            _logger.Debug($"Table {tableName}: RowCount={tableSize.RowCount}, SizeInGB={tableSize.SizeInGB}");
+            _logger.Debug($"{tableName}: RowCount={tableSize.RowCount}, SizeInGB={tableSize.SizeInGB}");
 
             switch (_config.LogicalPartitioningStrategy)
             {
@@ -464,7 +475,7 @@ namespace SmartBulkCopy
 
             var ps = (double)tableSize.SizeInGB / (double)partitionCount;
             var pc = (double)tableSize.RowCount / (double)partitionCount;
-            _logger.Info($"[{tableName}] is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions (Size: {ps:0.00} GB, Rows: {pc:0.00}).");
+            _logger.Info($"{tableName} |> Source table is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions (Logical partition size: {ps:0.00} GB, Rows: {pc:0.00}).");
 
             foreach (var n in Enumerable.Range(1, (int)partitionCount))
             {
@@ -579,7 +590,7 @@ namespace SmartBulkCopy
                                     }
                                     if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
                                     {
-                                        var oc = copyInfo.TableInfo.PrimaryIndex.Columns.Where(c => c.OrdinalPosition == 0);
+                                        var oc = copyInfo.TableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
                                         foreach (var ii in oc)
                                         {
                                             bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
