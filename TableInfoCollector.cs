@@ -16,6 +16,12 @@ using NLog;
 
 namespace SmartBulkCopy
 {
+    public class TableSize
+    {
+        public long RowCount = 0;
+        public int SizeInGB = 0;
+    }
+
     public class Column {
         public string ColumnName;
     }
@@ -28,6 +34,8 @@ namespace SmartBulkCopy
 
     public abstract class Index
     {
+        public virtual List<IndexColumn> Columns => new List<IndexColumn>();
+
         public virtual string GetOrderBy(bool excludePartitionColumn = true){
             return string.Empty;
         }
@@ -58,9 +66,7 @@ namespace SmartBulkCopy
     }
 
     public class RowStoreClusteredIndex: Index
-    {
-        public List<IndexColumn> Columns = new List<IndexColumn>();
-
+    {      
         public override string GetOrderBy(bool excludePartitionColumn = true)
         {           
             int op = 0;
@@ -117,7 +123,8 @@ namespace SmartBulkCopy
         public Index PrimaryIndex = new UnknownIndex();
         public List<string> Columns = new List<string>();
         public string TableLocation => $"{DatabaseName}.{TableName}@{ServerName}";
-
+        public TableSize Size = new TableSize();
+        
         public TableInfo(string serverName, string databaseName, string tableName)
         {
             this.ServerName = serverName;
@@ -129,8 +136,13 @@ namespace SmartBulkCopy
         {
             return TableLocation;
         }
-
     }    
+
+    public class UnknownTableInfo: TableInfo
+    {
+        public UnknownTableInfo(): base("Unknown", "Unknown", "Unknown") { }
+
+    }
 
     public class TablesInfoCollector    
     {
@@ -192,6 +204,9 @@ namespace SmartBulkCopy
             // Check if secondary index exists
             // TODO -> Is really needed?
 
+            await GetTableSizeAsync();
+            await GetColumnsForBulkCopyAsync();
+
             return _tableInfo;
         }
 
@@ -250,7 +265,7 @@ namespace SmartBulkCopy
                     ic.partition_ordinal
             ";
 
-            _logger.Debug($"[{_tableInfo.TableLocation}] Collecting Clustered RowStore Info. Executing:\n{sql}");
+            LogDebug($"Collecting Clustered RowStore Info. Executing:\n{sql}");
 
             var qr = await _conn.QueryAsync<IndexColumn>(sql, new { @tableName = _tableInfo.TableName });
 
@@ -259,11 +274,11 @@ namespace SmartBulkCopy
 
             if (rci.Columns.Count > 0)
             {
-                _logger.Debug($"[{_tableInfo.TableLocation}] Detected Clustered RowStore Index: {rci.GetOrderBy()}");
+                LogDebug($"Detected Clustered RowStore Index: {rci.GetOrderBy()}");
                 _tableInfo.PrimaryIndex = rci;
 
                 if (rci.Columns.Any(c => c.OrdinalPosition == 0)) {
-                    _logger.Debug($"[{_tableInfo.TableLocation}] Clustered RowStore Index is Partitioned on: {rci.GetPartitionBy()}");                    
+                    LogDebug($"Clustered RowStore Index is Partitioned on: {rci.GetPartitionBy()}");                    
                 }
             }
         }
@@ -289,7 +304,7 @@ namespace SmartBulkCopy
                     (ic.partition_ordinal != 0 or ic.partition_ordinal is null)
             ";            
 
-            _logger.Debug($"[{_tableInfo.TableLocation}] Collecting Heap Info. Executing:\n{sql}");
+            LogDebug($"Collecting Heap Info. Executing:\n{sql}");
 
             var columns = (await _conn.QueryAsync<Column>(sql, new { @tableName = _tableInfo.TableName })).ToList();;
             
@@ -300,7 +315,7 @@ namespace SmartBulkCopy
                 if (columns[0].ColumnName != null)
                 {                    
                     h.PartitionColumn = columns[0].ColumnName;
-                    _logger.Debug($"[{_tableInfo.TableLocation}] Heap is Partitioned on: {h.GetPartitionBy()}");                                        
+                    LogDebug($"Heap is Partitioned on: {h.GetPartitionBy()}");                                        
                 }
 
                 _tableInfo.PrimaryIndex = h;
@@ -345,7 +360,7 @@ namespace SmartBulkCopy
                 select top(1) ColumnName from cte order by sortKey               
             ";
 
-            _logger.Debug($"[{_tableInfo.TableLocation}] Collecting Clustered ColumnStore Info. Executing:\n{sql}");
+            LogDebug($"Collecting Clustered ColumnStore Info. Executing:\n{sql}");
 
             var columns = (await _conn.QueryAsync<Column>(sql, new { @tableName = _tableInfo.TableName })).ToList();;
             
@@ -356,11 +371,60 @@ namespace SmartBulkCopy
                 if (columns[0].ColumnName != null)
                 {                    
                     h.PartitionColumn = columns[0].ColumnName;
-                    _logger.Debug($"[{_tableInfo.TableLocation}] Clustered ColumnStore is Partitioned on: {h.GetPartitionBy()}");                                        
+                    LogDebug($"Clustered ColumnStore is Partitioned on: {h.GetPartitionBy()}");                                        
                 }
 
                 _tableInfo.PrimaryIndex = h;
             }
+        }
+
+        private async Task GetTableSizeAsync()
+        {
+            string sql = @"
+                select 
+                    sum(row_count) as [RowCount],
+                    cast((sum(used_page_count) * 8) / 1024. / 1024. as int) as SizeInGB
+                from 
+                    sys.dm_db_partition_stats 
+                where 
+                    [object_id] = object_id(@tableName) 
+                and 
+                    index_id in (0, 1, 5) 
+                group by 
+                    [object_id]
+            ";
+
+            LogDebug($"Executing:\n{sql}");
+
+            _tableInfo.Size = await _conn.QuerySingleAsync<TableSize>(sql, new { @tableName = _tableInfo.TableName });
+        }
+
+        private async Task GetColumnsForBulkCopyAsync()
+        {
+            LogDebug($"Creating column list...");
+
+            var sql = $@"
+                    select 
+                        [name] 
+                    from 
+                        sys.columns 
+                    where 
+                        [object_id] = object_id(@tableName) 
+                    and
+                        [is_computed] = 0 
+                    and 
+                        [is_column_set] = 0
+                    ";
+
+            LogDebug($"Executing:\n{sql}");
+
+            var columns = await _conn.QueryAsync<string>(sql, new { @tableName = _tableInfo.TableName });
+            _tableInfo.Columns = columns.ToList();            
+        }
+
+        private void LogDebug(string message)
+        {
+            _logger.Debug($"[{_tableInfo.TableLocation}] ${message}");
         }
     }
 }

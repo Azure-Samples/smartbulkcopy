@@ -14,43 +14,6 @@ using System.Text.RegularExpressions;
 
 namespace SmartBulkCopy
 {
-
-    public class TableOrderInfo
-    {
-        public List<SortColumn> SortColumns = new List<SortColumn>();
-
-        public bool IsFound => SortColumns.Count > 0;
-
-        public string GetPartitionOrderBy()
-        {
-            var orderList = from c in SortColumns 
-                        where c.OrdinalPosition == 0
-                        orderby c.OrdinalPosition
-                        select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
-    
-            return string.Join(",", orderList);
-        }
-
-        public string GetOrderBy(bool excludePartitionColumn = true)
-        {           
-            int op = 0;
-            if (excludePartitionColumn == true) op = -1;
-
-            var orderList = from c in SortColumns 
-                        where c.OrdinalPosition != op
-                        orderby c.OrdinalPosition
-                        select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
-    
-            return string.Join(",", orderList);
-        }
-    }
-
-    public class SortColumn {
-        public string ColumnName;
-        public int OrdinalPosition;
-        public bool IsDescending;
-    }
-
     enum OrderHintType
     {
         None,
@@ -60,11 +23,13 @@ namespace SmartBulkCopy
 
     abstract class CopyInfo
     {
-        public string TableName;
-        public List<string> Columns = new List<string>();
-        public TableOrderInfo OrderInfo = new TableOrderInfo();
+        public TableInfo TableInfo = new UnknownTableInfo();
         public OrderHintType OrderHintType = OrderHintType.None;
-        public int PartitionNumber;
+        public int PartitionNumber;        
+
+        public string TableName => TableInfo?.TableName;
+        public List<string> Columns => TableInfo.Columns;
+
         public abstract string GetPredicate();
         public string GetSelectList()
         {
@@ -72,7 +37,7 @@ namespace SmartBulkCopy
         }
         public string GetOrderBy()
         {           
-            return OrderInfo.GetOrderBy(excludePartitionColumn:true);
+            return TableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn:true);
         }
     }
 
