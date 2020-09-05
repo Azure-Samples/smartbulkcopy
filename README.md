@@ -36,13 +36,13 @@ SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-pa
 2. You're using a database snapshot as the source database
 3. You're using a database set in READ_ONLY mode
 
-## Heaps, Clustered RowStores, Clustered Columnstores
+## Heaps, Clustered RowStores, Clustered ColumnStores
 
 From version 1.7 Smart Bulk Copy will smartly copy tables with no clustered index (heaps), and tables with clustered index (rowstore or columnstore it does't matter.)
 
-Couple of notes for the Columnstore:
+Couple of notes for the ColumnStore:
 - Smart Bulk Copy will always use a Batch Size of 1048576 rows, no matter what specified in the configuration, in order to maximize compression and reduce number of rowgroups, as per [best pratices](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups).
-- 
+- When copying a ColumnStore table, you may see very low values (<20Mb/Sec) for the "Log Flush Speed". *This is correct and expected* as ColumnStore is extremely compressed and thus the log generation rate (which is what is measured by the Log Flush Speed) is lower than with RowStore tables.
 
 ## How to use it
 
