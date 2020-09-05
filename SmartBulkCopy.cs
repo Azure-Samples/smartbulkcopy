@@ -158,6 +158,10 @@ namespace SmartBulkCopy
                 {
                     _logger.Info($"{t} |> Source and destination are not partitioned and both are heaps. Parallel load enabled.");
                     usePartitioning = true;
+                } else if (sourceTable.PrimaryIndex.IsPartitioned == false && destinationTable.PrimaryIndex is Heap)
+                {
+                    _logger.Info($"{t} |> Sorce is not partitioned but destination is an heap. Parallel load enabled.");
+                    usePartitioning = true;
                 } else if ( 
                         (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned) &&
                         (sourceTable.PrimaryIndex.GetPartitionBy() == destinationTable.PrimaryIndex.GetPartitionBy()) &&
@@ -520,11 +524,15 @@ namespace SmartBulkCopy
                     {
                         whereClause = $" WHERE {predicate}";
                     };
-                    var orderBy = copyInfo.GetOrderBy();
-                    if (!string.IsNullOrEmpty(orderBy))
+                    var orderBy = "";
+                    if (copyInfo.OrderHintType != OrderHintType.None) 
                     {
-                        orderBy = $" ORDER BY {orderBy}";
-                    };
+                        orderBy = copyInfo.GetOrderBy();
+                        if (!string.IsNullOrEmpty(orderBy))
+                        {
+                            orderBy = $" ORDER BY {orderBy}";
+                        };
+                    }
                     var sql = $"SELECT {copyInfo.GetSelectList()} FROM {copyInfo.TableName}{whereClause}{orderBy}";
 
                     var options = SqlBulkCopyOptions.KeepIdentity |
