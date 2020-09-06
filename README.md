@@ -130,9 +130,35 @@ An exception to what said is the Azure SQL Hyperscale SKU always provide 100 MB/
 
 ## Observed Performances
 
-Tests have been run using the LINEITEM table of TPC-H 10GB test. Uncompressed table size is around 8.80 GB with 59,986,052 rows. Source database was a SQL Server 2017 VM runnin on Azure and the target was Azure SQL Hyperscale Gen8 8vCores. Smart Bulk Copy was running on the same Virtual Machine where also source database was hosted. Both the VM and the Azure SQL database were in the same region.
+Tests have been ran using the `LINEITEM` table of TPC-H 10GB test database. Uncompressed table size is around 8.8 GB with 59,986,052 rows. Source database was a SQL Server 2017 VM running on Azure and the target was Azure SQL Hyperscale Gen8 8vCores. Smart Bulk Copy was running on the same Virtual Machine where also source database was hosted. Both the VM and the Azure SQL database were in the same region. 
+Used configuration settings:
+```json
+"tasks": 7,
+"logical-partitions": "auto",
+"batch-size": 100000
+```
 
-|-|-|
+### Copying aligned tables
+
+Source and destination table were aligned in term of indexes and partitions:
+
+|Table|Copy Time (in sec)|
+|---|---|
+|HEAP|135 |
+|HEAP, PARTITIONED|**111**|
+|CLUSTERED ROWSTORE|505|
+|CLUSTERED ROWSTORE, PARTITIONED |207|
+|CLUSTERED COLUMNSTORE|315|
+|CLUSTERED COLUMNSTORE, PARTITIONED |196|
+
+### Copying for non-aligned tables
+
+(Work in progress)
+
+Destination was an heap or a columnstore. Source table was one of the following:
+
+|Source Table|Destination Table|Copy Time (in sec)|
+|---|---|---|---|
 
 ## Questions and Answers
 
@@ -147,7 +173,7 @@ Smart Bulk Copy only copies data between existing database and existings objects
 - [Database Migration Assistant](https://docs.microsoft.com/en-us/sql/dma/dma-overview?view=sql-server-2017)
 - [mssql-scripter](https://github.com/microsoft/mssql-scripter)
 
-### How can I make sure I moving data as fast as possibile?
+### How can I be sure I'm moving data as fast as possible?
 
 Remember that Azure SQL cannot go faster that ~100 MB/sec due to log rate governance. The best practices to quickly load data into a table can be found here:
 
