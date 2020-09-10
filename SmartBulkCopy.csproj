@@ -3,14 +3,14 @@
   <PropertyGroup>
 	<Title>SmartBulkCopy</Title>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>    
+    <TargetFramework>netcoreapp3.1</TargetFramework>    
     <LangVersion>latest</LangVersion>
-    <Version>1.6.1</Version>
+    <Version>1.7.1</Version>
     <Authors>Davide Mauri</Authors>
     <Product>Smart Bulk Copy</Product>
     <PackageId>SmartBulkCopy</PackageId>
-    <AssemblyVersion>1.6.1</AssemblyVersion>
-    <FileVersion>1.6.1</FileVersion>
+    <AssemblyVersion>1.7.1</AssemblyVersion>
+    <FileVersion>1.7.1</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
     <Description>Efficentily copy database tables from one SQL Server/Azure SQL database to another</Description>
     <Copyright>Davide Mauri</Copyright>
@@ -22,7 +22,7 @@
   
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.0.35" />
-    <PackageReference Include="Microsoft.Data.Sqlclient" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlclient" Version="2.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.2.0" />
@@ -34,6 +34,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="*.config.json">      
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="*.config">      
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

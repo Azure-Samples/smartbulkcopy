@@ -113,65 +113,118 @@ namespace SmartBulkCopy
             _tablesToCopy.AddRange(internalTablesToCopy);
 
             _logger.Info("Analyzing tables...");
+            var ticSource = new TablesInfoCollector(_config.SourceConnectionString, internalTablesToCopy, _logger);
+            var ticDestination = new TablesInfoCollector(_config.DestinationConnectionString, internalTablesToCopy, _logger);
+   
+            var ti1 = ticSource.CollectTablesInfoAsync();
+            var ti2 = ticDestination.CollectTablesInfoAsync();
+
+            await Task.WhenAll(ti1, ti2);
+
+            var tiSource = await ti1;
+            var tiDestination = await ti2;
+
             var copyInfo = new List<CopyInfo>();
             foreach (var t in internalTablesToCopy)
             {
-                // By default try to use partitioned load
-                bool usePartitioning = true;
+                bool usePartitioning = false;
+                OrderHintType orderHintType = OrderHintType.None;
+
+                var sourceTable = tiSource.Find(p => p.TableName == t);
+                var destinationTable = tiDestination.Find(p => p.TableName == t);
 
                 // Check it tables exists
-                if (!await CheckTableExistence(_config.SourceConnectionString, t))
+                if (sourceTable.Exists == false)
                 {
                     _logger.Error($"Table {t} does not exists on source.");
                     return 1;
                 }
-                if (!await CheckTableExistence(_config.DestinationConnectionString, t))
+                if (destinationTable.Exists == false)
                 {
                     _logger.Error($"Table {t} does not exists on destination.");
                     return 1;
                 }
 
-                // Check if there is a compatibile clustered index on the target table
-                // so that ordered bulk load could be used
-                var ciSource = await GetTableOrderInfo(_config.SourceConnectionString, t);
-                var ciDestination = await GetTableOrderInfo(_config.DestinationConnectionString, t);
-                OrderHintType orderHintType = OrderHintType.None;
-                if (ciSource.GetOrderBy() == ciDestination.GetOrderBy())
-                {
-                    orderHintType = OrderHintType.ClusteredIndex;
-                }
-                else if (ciSource.GetPartitionOrderBy() == ciDestination.GetPartitionOrderBy() && !string.IsNullOrEmpty(ciSource.GetPartitionOrderBy()))
-                {
-                    orderHintType = OrderHintType.PartionKeyOnly;
-                }
+                // To DO
+                // If destination table has secondary indexes then stop
 
-                // Check if table is partitioned
-                var isSourcePartitioned = await CheckIfTableIsPartitioned(_config.SourceConnectionString, t);
-
-                // If table is not partitined and has a clustered index, 
-                // logical partitioning CANNOT be used
-                if (orderHintType == OrderHintType.ClusteredIndex && isSourcePartitioned == false)
+                // Check if partitioned load is possible
+                if  (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex is Heap)
                 {
-                    _logger.Info($"Table {t} has a clustered index but no physical partitions. Forcing 1 logical partition and ordered load.");
+                    _logger.Info($"{t} |> Source is partitioned and destination is heap. Parallel load enabled.");
+                    _logger.Info($"{t} |> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
+                    usePartitioning = true;
+                } else if (sourceTable.PrimaryIndex is Heap && destinationTable.PrimaryIndex is Heap)
+                {
+                    _logger.Info($"{t} |> Source and destination are not partitioned and both are heaps. Parallel load enabled.");
+                    usePartitioning = true;
+                } else if (sourceTable.PrimaryIndex.IsPartitioned == false && destinationTable.PrimaryIndex is Heap)
+                {
+                    _logger.Info($"{t} |> Source is not partitioned but destination is an heap. Parallel load enabled.");
+                    usePartitioning = true;
+                } else if ( 
+                        (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned) &&
+                        (sourceTable.PrimaryIndex.GetPartitionBy() == destinationTable.PrimaryIndex.GetPartitionBy()) &&
+                        (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())
+                    )  {
+                    _logger.Info($"{t} |> Source and destination tables have compatible partitioning logic. Parallel load enabled.");
+                    _logger.Info($"{t} |> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
+                    if (sourceTable.PrimaryIndex.GetOrderBy() != string.Empty) _logger.Info($"{t} |> Order By: {sourceTable.PrimaryIndex.GetOrderBy()}");
+                    usePartitioning = true;
+                } else if (destinationTable.PrimaryIndex is ColumnStoreClusteredIndex)
+                {
+                    _logger.Info($"{t} |> Destination is a ColumnStore. Parallel load enabled.");
+                    usePartitioning = true;
+                }              
+                else {
+                    _logger.Info($"{t} |> Source and destination tables cannot be loaded in parallel.");
                     usePartitioning = false;
                 }
+
+                // Check if ORDER hint can be used to avoid sorting data on the destination
+                if (sourceTable.PrimaryIndex is RowStoreClusteredIndex && destinationTable.PrimaryIndex is RowStoreClusteredIndex)
+                {
+                    if (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())                    
+                    {
+                        _logger.Info($"{t} |> Source and destination clustered rowstore index have same ordering. Enabling ORDER hint.");
+                        orderHintType = OrderHintType.ClusteredIndex;
+
+                    }
+                }                 
+                if (sourceTable.PrimaryIndex is Heap && destinationTable.PrimaryIndex is Heap)
+                {
+                    if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned)
+                    {
+                        _logger.Info($"{t} |> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
+                        orderHintType = OrderHintType.PartionKeyOnly;
+                    }
+                } 
+                if (sourceTable.PrimaryIndex is ColumnStoreClusteredIndex && destinationTable.PrimaryIndex is ColumnStoreClusteredIndex) 
+                {
+                    if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned)
+                    {
+                        _logger.Info($"{t} |> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
+                        orderHintType = OrderHintType.PartionKeyOnly;
+                    }
+                } 
 
                 // Use partitions if that make sense
                 var partitionType = "Unknown";
                 if (usePartitioning == true)
                 {
-                    var tableSize = GetTableSize(t);
+                    var tableSize = sourceTable.Size;
 
                     // Check if table is big enough to use partitions
                     if (tableSize.RowCount > _config.BatchSize || tableSize.SizeInGB > 1)
                     {
                         // Create the Work Info data based on partition type
-                        if (isSourcePartitioned)
+                        if (sourceTable.PrimaryIndex.IsPartitioned)
                         {
-                            var cis = CreatePhysicalPartitionedTableCopyInfo(t);
+                            var cis = CreatePhysicalPartitionedTableCopyInfo(sourceTable);
                             cis.ForEach(ci =>
                             {
-                                ci.OrderInfo = ciSource;
+                                ci.SourceTableInfo = sourceTable;
+                                ci.DestinationTableInfo = destinationTable;
                                 ci.OrderHintType = orderHintType;
                             });
                             copyInfo.AddRange(cis);
@@ -180,15 +233,20 @@ namespace SmartBulkCopy
                         }
                         else
                         {
-                            var cis = CreateLogicalPartitionedTableCopyInfo(t, tableSize);
-                            _logger.Info($"Table {t} is using logical partitioning: clustered index will be ignored, if present.");
+                            var cis = CreateLogicalPartitionedTableCopyInfo(sourceTable);
+                            cis.ForEach(ci =>
+                            {
+                                ci.SourceTableInfo = sourceTable;
+                                ci.DestinationTableInfo = destinationTable;
+                                ci.OrderHintType = orderHintType;
+                            });                            
                             copyInfo.AddRange(cis);
                             partitionType = "Logical";
                         }
                     }
                     else
                     {
-                        _logger.Info($"Table {t} is small, partitioned copy will not be used.");
+                        _logger.Info($"{t} |> Table is small, partitioned copy will not be used.");
                         usePartitioning = false;
                     }
                 }
@@ -196,20 +254,18 @@ namespace SmartBulkCopy
                 // Otherwise just copy the table, possibility using 
                 // and ordered bulk copy                                
                 if (usePartitioning == false)
-                {
-                    var columns = GetColumnsForBulkCopy(t);
-                    var ci = new NoPartitionsCopyInfo() { TableName = t };
-                    ci.Columns.AddRange(columns);
-                    if (orderHintType != OrderHintType.None) ci.OrderInfo = ciSource;
+                {                    
+                    var ci = new NoPartitionsCopyInfo() { SourceTableInfo = sourceTable };                    
                     ci.OrderHintType = orderHintType;
+                    ci.DestinationTableInfo = destinationTable;
                     copyInfo.Add(ci);
                     partitionType = "None";
                 }
 
-                _logger.Info($"Table {t} analysis result: usePartioning={usePartitioning}, partitionType={partitionType}, orderHintType={orderHintType}");
+                _logger.Info($"{t} |> Analysis result: usePartioning={usePartitioning}, partitionType={partitionType}, orderHintType={orderHintType}");
             }
 
-            _logger.Info("Enqueing work...");
+            _logger.Info("Enqueueing work...");
             copyInfo.ForEach(ci => _queue.Enqueue(ci));
             _logger.Info($"{_queue.Count} items enqueued.");
 
@@ -217,7 +273,7 @@ namespace SmartBulkCopy
             {
                 _logger.Info("Truncating destination tables...");
                 internalTablesToCopy.ForEach(t => TruncateDestinationTable(t));
-            }
+            }            
 
             _logger.Info($"Copying using {_config.MaxParallelTasks} parallel tasks.");
             var tasks = new List<Task>();
@@ -271,72 +327,7 @@ namespace SmartBulkCopy
             }
 
             return result;
-        }
-
-        private async Task<TableOrderInfo> GetTableOrderInfo(string connectionString, string tableName)
-        {
-            var sqsb = new SqlConnectionStringBuilder(connectionString);
-
-            var result = new TableOrderInfo();
-
-            string sql = @"
-                select
-                    c.name as ColumnName,
-                    ic.key_ordinal as OrdinalPosition,
-                    ic.is_descending_key as IsDescending,
-                    ic.partition_ordinal
-                from
-                    sys.indexes i
-                inner join
-                    sys.index_columns ic on ic.index_id = i.index_id and ic.[object_id] = i.[object_id] 
-                inner join
-                    sys.columns c on ic.column_id = c.column_id and ic.[object_id] = c.[object_id]
-                where
-                    i.[object_id] = object_id(@tableName) 
-                and
-                    i.[type] in (0,1)
-                order by
-                    ic.key_ordinal,
-                    ic.partition_ordinal
-            ";
-
-            _logger.Debug($"Executing: {sql}, @tableName = {tableName}, @server = {sqsb.DataSource}");
-
-            var conn = new SqlConnection(connectionString);
-            var qr = await conn.QueryAsync<SortColumn>(sql, new { @tableName = tableName });
-
-            result.SortColumns.AddRange(qr.ToList());
-
-            if (result.SortColumns.Count > 0)
-            {
-                _logger.Debug($"Detected Clustered Index on {tableName}@{sqsb.DataSource}: {result.GetOrderBy()}");
-            }
-
-            return result;
-        }
-
-        private TableSize GetTableSize(string tableName)
-        {
-            string sql = @"
-                select 
-                    sum(row_count) as row_count,
-                    (sum(used_page_count) * 8) / 1024. / 1024 as size_gb
-                from 
-                    sys.dm_db_partition_stats 
-                where 
-                    [object_id] = object_id(@tableName) 
-                and 
-                    index_id in (0, 1) 
-                group by 
-                    [object_id]
-            ";
-
-            _logger.Debug($"Executing: {sql}, @tableName = {tableName}");
-
-            var conn = new SqlConnection(_config.SourceConnectionString);
-            var qr = conn.QuerySingle(sql, new { @tableName = tableName });
-            return new TableSize() { RowCount = (long)(qr.row_count), SizeInGB = (int)(qr.size_gb) };
-        }
+        }                
 
         private bool CheckDatabaseSnapshot()
         {
@@ -394,31 +385,7 @@ namespace SmartBulkCopy
             }
 
             return result;
-        }
-
-        private async Task<bool> CheckIfTableIsPartitioned(string connectionString, string tableName)
-        {
-            var sqsb = new SqlConnectionStringBuilder(connectionString);
-
-            var conn = new SqlConnection(connectionString);
-
-            string sql = @"
-                select 
-                    IsPartitioned = case when count(*) > 1 then 1 else 0 end 
-                from 
-                    sys.dm_db_partition_stats 
-                where 
-                    [object_id] = object_id(@tableName) 
-                and 
-                    index_id in (0,1)
-            ";
-
-            _logger.Debug($"Executing: {sql}, @tableName = {tableName}, @server = {sqsb.DataSource}");
-
-            var isPartitioned = await conn.ExecuteScalarAsync<int>(sql, new { @tableName = tableName });
-
-            return (isPartitioned == 1);
-        }
+        }        
 
         private void TruncateDestinationTable(string tableName)
         {
@@ -427,33 +394,10 @@ namespace SmartBulkCopy
             destinationConnection.ExecuteScalar($"TRUNCATE TABLE {tableName}");
         }
 
-        private List<String> GetColumnsForBulkCopy(string tableName)
+        private List<CopyInfo> CreatePhysicalPartitionedTableCopyInfo(TableInfo ti)
         {
-            _logger.Debug($"Creating column list for {tableName}...");
-            var conn = new SqlConnection(_config.SourceConnectionString);
+            string tableName = ti.TableName;
 
-            var sql = $@"
-                    select 
-                        [name] 
-                    from 
-                        sys.columns 
-                    where 
-                        [object_id] = object_id(@tableName) 
-                    and
-                        [is_computed] = 0 
-                    and 
-                        [is_column_set] = 0
-                    ";
-
-            _logger.Debug($"Executing: {sql}, @tableName = {tableName}");
-
-            var columns = conn.Query<string>(sql, new { @tableName = tableName });
-
-            return columns.ToList();
-        }
-
-        private List<CopyInfo> CreatePhysicalPartitionedTableCopyInfo(string tableName)
-        {
             var copyInfo = new List<CopyInfo>();
 
             var conn = new SqlConnection(_config.SourceConnectionString);
@@ -473,7 +417,7 @@ namespace SmartBulkCopy
 
             var partitionCount = (int)conn.ExecuteScalar(sql1, new { @tableName = tableName });
 
-            _logger.Info($"Table {tableName} is partitioned. Bulk copy will be parallelized using {partitionCount} partition(s).");
+            _logger.Info($"{tableName} |> Table is partitioned. Bulk copy will be parallelized using {partitionCount} partition(s).");
 
             var sql2 = $@"
                 select 
@@ -502,16 +446,13 @@ namespace SmartBulkCopy
 
             var partitionInfo = conn.QuerySingle(sql2, new { @tableName = tableName });
 
-            var columns = GetColumnsForBulkCopy(tableName);
-
             foreach (var n in Enumerable.Range(1, partitionCount))
             {
                 var cp = new PhysicalPartitionCopyInfo();
                 cp.PartitionNumber = n;
-                cp.TableName = tableName;
+                cp.SourceTableInfo = ti;
                 cp.PartitionColumn = partitionInfo.PartitionColumn;
-                cp.PartitionFunction = partitionInfo.PartitionFunction;
-                cp.Columns.AddRange(columns);
+                cp.PartitionFunction = partitionInfo.PartitionFunction;                
 
                 copyInfo.Add(cp);
             }
@@ -519,15 +460,16 @@ namespace SmartBulkCopy
             return copyInfo;
         }
 
-        private List<CopyInfo> CreateLogicalPartitionedTableCopyInfo(string tableName, TableSize tableSize)
+        private List<CopyInfo> CreateLogicalPartitionedTableCopyInfo(TableInfo ti)
         {
-            var copyInfo = new List<CopyInfo>();
+            string tableName = ti.TableName;
+            TableSize tableSize = ti.Size;
 
-            var columns = GetColumnsForBulkCopy(tableName);
+            var copyInfo = new List<CopyInfo>();
 
             long partitionCount = 1;
 
-            _logger.Debug($"Table {tableName}: RowCount={tableSize.RowCount}, SizeInGB={tableSize.SizeInGB}");
+            _logger.Debug($"{tableName}: RowCount={tableSize.RowCount}, SizeInGB={tableSize.SizeInGB}");
 
             switch (_config.LogicalPartitioningStrategy)
             {
@@ -557,15 +499,14 @@ namespace SmartBulkCopy
 
             var ps = (double)tableSize.SizeInGB / (double)partitionCount;
             var pc = (double)tableSize.RowCount / (double)partitionCount;
-            _logger.Info($"Table {tableName} is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions (Size: {ps:0.00} GB, Rows: {pc:0.00}).");
+            _logger.Info($"{tableName} |> Source table is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions (Logical partition size: {ps:0.00} GB, Rows: {pc:0.00}).");
 
             foreach (var n in Enumerable.Range(1, (int)partitionCount))
             {
                 var cp = new LogicalPartitionCopyInfo();
                 cp.PartitionNumber = n;
-                cp.TableName = tableName;
+                cp.SourceTableInfo = ti;
                 cp.LogicalPartitionsCount = (int)partitionCount;
-                cp.Columns.AddRange(columns);
                 copyInfo.Add(cp);
             }
 
@@ -598,19 +539,22 @@ namespace SmartBulkCopy
                     {
                         whereClause = $" WHERE {predicate}";
                     };
-                    var orderBy = copyInfo.GetOrderBy();
-                    if (!string.IsNullOrEmpty(orderBy))
+                    var orderBy = "";
+                    if (copyInfo.OrderHintType != OrderHintType.None) 
                     {
-                        orderBy = $" ORDER BY {orderBy}";
-                    };
+                        orderBy = copyInfo.GetOrderBy();
+                        if (!string.IsNullOrEmpty(orderBy))
+                        {
+                            orderBy = $" ORDER BY {orderBy}";
+                        };
+                    }
                     var sql = $"SELECT {copyInfo.GetSelectList()} FROM {copyInfo.TableName}{whereClause}{orderBy}";
 
                     var options = SqlBulkCopyOptions.KeepIdentity |
                                 SqlBulkCopyOptions.KeepNulls;
 
-                    // Tablock should be used only if using logical partitioning      
-                    // and NO indexes are detected/used
-                    if (copyInfo.OrderHintType != OrderHintType.ClusteredIndex)
+                    // TABLOCK can be used only if target is HEAP
+                    if (copyInfo.DestinationTableInfo.PrimaryIndex is Heap)
                     {
                         options |= SqlBulkCopyOptions.TableLock;
                         _logger.Debug($"Task {taskId}: Using TABLOCK");
@@ -661,26 +605,34 @@ namespace SmartBulkCopy
                                 {
                                     bulkCopy.ColumnMappings.Add(c, c);
                                 }
-                                if (copyInfo.OrderInfo.IsFound)
+                                
+                                if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
                                 {
-                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
-                                    if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
+                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");                                    
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.OrderBy(c => c.OrdinalPosition);
+                                    foreach (var ii in oc)
                                     {
-                                        foreach (var ii in copyInfo.OrderInfo.SortColumns)
-                                        {
-                                            bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
-                                        }
-                                    }
-                                    if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
-                                    {
-                                        var oc = copyInfo.OrderInfo.SortColumns.Where(c => c.OrdinalPosition == 0);
-                                        foreach (var ii in oc)
-                                        {
-                                            bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
-                                        }
+                                        bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
                                     }
                                 }
-                                bulkCopy.BatchSize = _config.BatchSize;
+                                if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
+                                {
+                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
+                                    foreach (var ii in oc)
+                                    {
+                                        bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
+                                    }
+                                }
+
+                                if (copyInfo.DestinationTableInfo.PrimaryIndex is ColumnStoreClusteredIndex) 
+                                {
+                                    // Make sure Columnstore will have as few rowgroups as possible
+                                    bulkCopy.BatchSize = 1048576;
+                                } else {
+                                    bulkCopy.BatchSize = _config.BatchSize;
+                                }
+                            
                                 bulkCopy.WriteToServer(sourceReader);
                                 attempts = int.MaxValue;
                                 taskTran.Commit();
@@ -891,36 +843,6 @@ namespace SmartBulkCopy
             return result;
         }
 
-        private async Task<bool> CheckTableExistence(string connectionString, string tableName)
-        {
-            bool result = false;
-            var conn = new SqlConnection(connectionString);
-            try
-            {
-                await conn.QuerySingleAsync(@"select 
-                        [FullName] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
-                    from 
-                        sys.tables t 
-                    inner join 
-                        sys.schemas s on t.[schema_id] = s.[schema_id]
-                    where
-                        s.[name] = PARSENAME(@tableName, 2)
-                    and
-                        t.[name] = PARSENAME(@tableName, 1)", new { @tableName = tableName });
-                result = true;
-            }
-            catch (InvalidOperationException)
-            {
-                result = false;
-            }
-            finally
-            {
-                conn.Close();
-            }
-
-            return result;
-        }
-
         private List<String> GetTablesToCopy(IEnumerable<String> sourceList)
         {
             var conn = new SqlConnection(_config.SourceConnectionString);
@@ -930,7 +852,7 @@ namespace SmartBulkCopy
             {
                 if (t.Contains("*"))
                 {
-                    _logger.Info("Getting list of tables to copy...");
+                    _logger.Info($"Wildcard found: '{t}'. Getting list of tables to copy...");
                     var tables = conn.Query(@"
                         select 
                             [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
@@ -951,7 +873,7 @@ namespace SmartBulkCopy
                         bool matches = Regex.IsMatch(tb.Name.Replace("[", "").Replace("]", ""), regExPattern); // TODO: Improve wildcard matching
                         if (matches)
                         {
-                            _logger.Info($"Adding {tb.Name}...");
+                            _logger.Info($"Adding via wildcard {tb.Name}...");
                             internalTablesToCopy.Add(tb.Name);
                         }
                     }
@@ -964,12 +886,6 @@ namespace SmartBulkCopy
             }
 
             return internalTablesToCopy;
-        }
-
-        private class TableSize
-        {
-            public long RowCount;
-            public int SizeInGB;
         }
     }
 }

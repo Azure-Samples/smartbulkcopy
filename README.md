@@ -6,7 +6,7 @@ It can be used to efficiently and quickly move data from two instances of SQL Se
 
 ## How it works
 
-Smart Bulk Copy usese [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/api/system.data.sqlclient.sqlbulkcopy) with parallel tasks. A source table is split in partitions, and each partition is copied in parallel with others, up to a defined maxium, in order to use all the available bandwidth and all the cloud or server resources available to minimize the load times.
+Smart Bulk Copy uses [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/api/system.data.sqlclient.sqlbulkcopy) with parallel tasks. A source table is split in partitions, and each partition is copied in parallel with others, up to a defined maxium, in order to use all the available bandwidth and all the cloud or server resources available to minimize the load times.
 
 ### Partitioned Source Tables
 
@@ -16,7 +16,7 @@ When a source table is partitioned, it uses the physical partitions to execute s
 SELECT * FROM <sourceTable> WHERE $partition.<partitionFunction>(<partitionColumn>) = <n>
 ```
 
-in parallel and to load, always in parallel, data into the destination table. `TABLOCK` options is used - when possible - on the table to allow fully parallelizable bulk inserts.
+Queries are executed in parallel to load, always in parallel, data into the destination table. `TABLOCK` options is used - when possible - on the table to allow fully parallelizable bulk inserts. `ORDER` option is also used when possibile to minimize the sort operations on the destination table, when insert into a table with an existing clustered rowstore index.
 
 ### Non-Partitioned Source Tables
 
@@ -24,7 +24,7 @@ If a source table is not partitioned, then Smart Bulk Copy will use the `%%PhysL
 
 [Where is a record really located?](https://techcommunity.microsoft.com/t5/Premier-Field-Engineering/Where-is-a-record-really-located/ba-p/370972)
 
-If the configuration file specify a value greater than 1 for `logical-partitions` the following query will be used to read the logical partition in parallel:
+If the configuration file specifies a value greater than 1 for `logical-partitions` the following query will be used to read the logical partition in parallel:
 
 ```sql
 SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-partitions-count> = <n>
@@ -36,9 +36,17 @@ SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-pa
 2. You're using a database snapshot as the source database
 3. You're using a database set in READ_ONLY mode
 
+## Heaps, Clustered Rowstores, Clustered Columnstores
+
+From version 1.7 Smart Bulk Copy will smartly copy tables with no clustered index (heaps), and tables with clustered index (rowstore or columnstore it does't matter.)
+
+Couple of notes for the Columnstore:
+- Smart Bulk Copy will always use a Batch Size of 1048576 rows, no matter what specified in the configuration, in order to maximize compression and reduce number of rowgroups, as per [best pratices](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups).
+- When copying a Columnstore table, you may see very low values (<20Mb/Sec) for the "Log Flush Speed". *This is correct and expected* as Columnstore is extremely compressed and thus the log generation rate (which is what is measured by the Log Flush Speed) is much lower than with Rowstore tables.
+
 ## How to use it
 
-Download or clone the repository, make sure you have .NET Core 2.1 installed and then create a `smartbulkcopy.config` file from the provided `smartbulkcopy.config.template`. If you want to start right away just provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
+Download or clone the repository, make sure you have .NET Core 3.1 installed and then create a `smartbulkcopy.config` file from the provided `smartbulkcopy.config.template`. If you want to start right away just provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
 
 [Create a Database Snapshot](https://docs.microsoft.com/en-us/sql/relational-databases/databases/create-a-database-snapshot-transact-sql?view=sql-server-2017)
 
@@ -120,6 +128,27 @@ Azure SQL is log-rated as described in [Transaction Log Rate Governance](https:/
 
 An exception to what said is the Azure SQL Hyperscale SKU always provide 100 MB/Sec of maximum log throughput, no matter the number of vCores.
 
+## Observed Performances
+
+Tests have been ran using the `LINEITEM` table of TPC-H 10GB test database. Uncompressed table size is around 8.8 GB with 59,986,052 rows. Source database was a SQL Server 2017 VM running on Azure and the target was Azure SQL Hyperscale Gen8 8vCores. Smart Bulk Copy was running on the same Virtual Machine where also source database was hosted. Both the VM and the Azure SQL database were in the same region. 
+Used configuration settings:
+```json
+"tasks": 7,
+"logical-partitions": "auto",
+"batch-size": 100000
+```
+
+Here's the result of the tests:
+
+|Table|Copy Time (in sec)|
+|---|---|
+|HEAP|135 |
+|HEAP, PARTITIONED|**111**|
+|CLUSTERED ROWSTORE|505|
+|CLUSTERED ROWSTORE, PARTITIONED |207|
+|CLUSTERED COLUMNSTORE|315|
+|CLUSTERED COLUMNSTORE, PARTITIONED |196|
+
 ## Questions and Answers
 
 ### Is the physical location of a row really always the same in a Database Snapshot?
@@ -133,7 +162,7 @@ Smart Bulk Copy only copies data between existing database and existings objects
 - [Database Migration Assistant](https://docs.microsoft.com/en-us/sql/dma/dma-overview?view=sql-server-2017)
 - [mssql-scripter](https://github.com/microsoft/mssql-scripter)
 
-### How can I make sure I moving data as fast as possibile?
+### How can I be sure I'm moving data as fast as possible?
 
 Remember that Azure SQL cannot go faster that ~100 MB/sec due to log rate governance. The best practices to quickly load data into a table can be found here:
 
@@ -144,15 +173,29 @@ In summary, before starting the copy process, make sure that, for the table that
 
 - Tables must be empty
 - Drop any Foreign Key Constraint 
-- Drop any Index 
+- Drop any Secondary (Non-Clustered) Index 
 
-Recreate Foreign Key constrints and indexes after the data has been copied successfully.
+From version 1.7 if you have a table with a clustered index on it, Smart Bulk Copy will try to copy it as fast as possible, using partitioning if possible and ORDER hint to avoid unnecessary sort. Here's how Smart Bulk Copy will try to load tables based on indexes and partitioning:
 
-Please note that from version 1.6 performance of copying data into a non-partitioned table with an existing clustered index (but no other indexes) has been improved, but still copying into an heap is much faster as it can happen in parallel.
+**Non-Partitioned Tables**
+- *HEAP Table*: Parallel Bulk Load using Logical Partitions
+- *Table with CLUSTERED ROWSTORE*: Single Bulk Load, Ordered by Index Key Columns
+- *Table with CLUSTERED COLUMNSTORE*: Parallel Bulk Load using Logical Partitions
+
+**Partitioned Tables**
+- *HEAP Table*: Parallel Bulk Load using Logical Partitions
+- *Table with CLUSTERED ROWSTORE*: Parallel Bulk Load using Physical Partitions, Ordered by Index Key Columns
+- *Table with CLUSTERED COLUMNSTORE*: Parallel Bulk Load using Physical Partitions
+
+Recreate Foreign Key constraints and indexes after the data has been copied successfully.
+
+### I have a huge database and recreating indexes could be a challenge
+
+If you have a huge table you may want to bulk load data WITHOUT removing the Clustered Index so to avoid the need to recreate in once on Azure SQL, as if the table is really big (for example, 500GB size and more) rebuilding the Clustered Index could be a very resource and time-consuming operation. In such case you may want to keep the clustered index. From version 1.7 Smart Bulk Copy will allow you to do that. 
 
 ### I would change the code here and there, can I?
 
-Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possibile. Code can be largely improved even, if I tried to apply some of the best practies, but when I had to make some choice I chose simplicity over everything else.
+Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. Code can be largely improved even, if I tried to apply some of the best practices, but when I had to make some choice I chose simplicity over everything else.
 
 ## Tests
 
