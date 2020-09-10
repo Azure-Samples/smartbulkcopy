@@ -138,9 +138,7 @@ Used configuration settings:
 "batch-size": 100000
 ```
 
-### Copying aligned tables
-
-Source and destination table were aligned in term of indexes and partitions:
+Here's the result of the tests:
 
 |Table|Copy Time (in sec)|
 |---|---|
@@ -150,15 +148,6 @@ Source and destination table were aligned in term of indexes and partitions:
 |CLUSTERED ROWSTORE, PARTITIONED |207|
 |CLUSTERED COLUMNSTORE|315|
 |CLUSTERED COLUMNSTORE, PARTITIONED |196|
-
-### Copying for non-aligned tables
-
-(Work in progress)
-
-Destination was an heap or a columnstore. Source table was one of the following:
-
-|Source Table|Destination Table|Copy Time (in sec)|
-|---|---|---|---|
 
 ## Questions and Answers
 
