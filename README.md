@@ -189,9 +189,13 @@ From version 1.7 if you have a table with a clustered index on it, Smart Bulk Co
 
 Recreate Foreign Key constraints and indexes after the data has been copied successfully.
 
+### I have a huge database and recreating indexes could be a challenge
+
+If you have a huge table you may want to bulk load data WITHOUT removing the Clustered Index so to avoid the need to recreate in once on Azure SQL, as if the table is really big (for example, 500GB size and more) rebuilding the Clustered Index could be a very resource and time-consuming operation. In such case you may want to keep the clustered index. From version 1.7 Smart Bulk Copy will allow you to do that. 
+
 ### I would change the code here and there, can I?
 
-Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possibile. Code can be largely improved even, if I tried to apply some of the best practies, but when I had to make some choice I chose simplicity over everything else.
+Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. Code can be largely improved even, if I tried to apply some of the best practices, but when I had to make some choice I chose simplicity over everything else.
 
 ## Tests
 
