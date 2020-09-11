@@ -6,7 +6,7 @@ It can be used to efficiently and quickly move data from two instances of SQL Se
 
 ## How it works
 
-Smart Bulk Copy uses [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/api/system.data.sqlclient.sqlbulkcopy) with parallel tasks. A source table is split in partitions, and each partition is copied in parallel with others, up to a defined maxium, in order to use all the available bandwidth and all the cloud or server resources available to minimize the load times.
+Smart Bulk Copy uses [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/api/system.data.sqlclient.sqlbulkcopy) with parallel tasks. A source table is split in partitions, and each partition is copied in parallel with others, up to a defined maximum, in order to use all the available network bandwidth and all the cloud or server resources available to minimize the load times.
 
 ### Partitioned Source Tables
 
@@ -16,7 +16,7 @@ When a source table is partitioned, it uses the physical partitions to execute s
 SELECT * FROM <sourceTable> WHERE $partition.<partitionFunction>(<partitionColumn>) = <n>
 ```
 
-Queries are executed in parallel to load, always in parallel, data into the destination table. `TABLOCK` options is used - when possible - on the table to allow fully parallelizable bulk inserts. `ORDER` option is also used when possibile to minimize the sort operations on the destination table, when insert into a table with an existing clustered rowstore index.
+Queries are executed in parallel to load, always in parallel, data into the destination table. `TABLOCK` options is used - when possible - on the table to allow fully parallelizable bulk inserts. `ORDER` option is also used when possible to minimize the sort operations on the destination table, when insert into a table with an existing clustered rowstore index.
 
 ### Non-Partitioned Source Tables
 
@@ -38,10 +38,10 @@ SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-pa
 
 ## Heaps, Clustered Rowstores, Clustered Columnstores
 
-From version 1.7 Smart Bulk Copy will smartly copy tables with no clustered index (heaps), and tables with clustered index (rowstore or columnstore it does't matter.)
+From version 1.7 Smart Bulk Copy will smartly copy tables with no clustered index (heaps), and tables with clustered index (rowstore or columnstore it doesn't matter.)
 
 Couple of notes for the Columnstore:
-- Smart Bulk Copy will always use a Batch Size of 1048576 rows, no matter what specified in the configuration, in order to maximize compression and reduce number of rowgroups, as per [best pratices](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups).
+- Smart Bulk Copy will always use a Batch Size of a minimum of 102400 rows, no matter what specified in the configuration as per [best practices](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups). If you have columnstore it is generally recommended to increase the value to 1048576 in order to maximize compression and [reduce number of rowgroups](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups).
 - When copying a Columnstore table, you may see very low values (<20Mb/Sec) for the "Log Flush Speed". *This is correct and expected* as Columnstore is extremely compressed and thus the log generation rate (which is what is measured by the Log Flush Speed) is much lower than with Rowstore tables.
 
 ## How to use it
@@ -86,17 +86,17 @@ You can use schema to limit the wildcard scope:
 'tables': ['dbo.*']
 ```
 
-#### Copy behaviour
+#### Copy behavior
 
-You can fine tune Smart Bulk Copy behaviour with the configuration settings available in `option` secion:
+You can fine tune Smart Bulk Copy behavior with the configuration settings available in `option` section:
 
 `"tasks": 7`
 
-Define how many parallel task will move data from source to destination. Smart Bulk Copy uses a Concurrent Queue behind the scenes that is filled will all the partition that must be copied. Then as many as `tasks` are created and each of of those will dequeue work as fast as possibile. How many task you want or can have depends on how much bandwidth you have and how much resources are available in the destination. Maximum value is 32.
+Define how many parallel task will move data from source to destination. Smart Bulk Copy uses a Concurrent Queue behind the scenes that is filled will all the partition that must be copied. Then as many as `tasks` are created and each of of those will dequeue work as fast as possible. How many task you want or can have depends on how much network bandwidth you have and how much resources are available in the destination. Maximum value is 32.
 
 `"logical-partitions": "auto"`
 
-In case a table is not physically partitioned, this option is used to create the logical partitions as described before. As a general rule at least the same amout of tasks is recommended in order to maximize throughput, but you need to tune it depending on how big your table is and how fast your destination server can do the bulk load.
+In case a table is not physically partitioned, this option is used to create the logical partitions as described before. As a general rule at least the same amount of tasks is recommended in order to maximize throughput, but you need to tune it depending on how big your table is and how fast your destination server can do the bulk load.
 There are three values supported by `logical-partitions`:
 
 - `"auto"`: will try to automatically set the correct number of logical partitions per table, taking into account both row count and table size
@@ -117,16 +117,18 @@ Instruct Smart Bulk Copy to truncate tables on the destination before loading th
 
 `"safe-check": "readonly"`
 
-Check that source database is actually a database snapshot or that database is set to readonly mode. Using one of the two options is recommended to avoid data modification while copy is in progress as this can lead to inconsistencies. Supported values are `readonly` and `snapshot`. If you want to disable the safety check use `none`: disabling the security check is *not* recommendded.
+Check that source database is actually a database snapshot or that database is set to readonly mode. Using one of the two options is recommended to avoid data modification while copy is in progress as this can lead to inconsistencies. Supported values are `readonly` and `snapshot`. If you want to disable the safety check use `none`: disabling the security check is *not* recommended.
 
 ## Notes on Azure SQL
 
 Azure SQL is log-rated as described in [Transaction Log Rate Governance](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server#transaction-log-rate-governance) and it can do 96 MB/sec of log flushing. Smart Bulk Load will report the detected log flush speed every 5 seconds so that you can check if you can actually increase the number of parallel task to go faster or you're already at the limit. Please remember that 96 MB/Sec are done with higher SKU, so if you're already using 7 parallel tasks and you're not seeing something close to 96 MB/Sec please check that
 
-1. You have enough bandwidth (this should not be a problem if you're copying data from cloud to cloud)
-2. You're not using some very low SKU (like P1 or lower or just 2 vCPU). In this case move to an higher SKU for the bulk load duration. 
+1. You have enough network bandwidth (this should not be a problem if you're copying data from cloud to cloud)
+2. You're not using some very low SKU (like [P1 or lower](https://docs.microsoft.com/en-us/azure/azure-sql/database/resource-limits-dtu-single-databases) or just [2 vCPU](https://docs.microsoft.com/en-us/azure/azure-sql/database/resource-limits-vcore-single-databases)). In this case move to an higher SKU for the bulk load duration. 
 
-An exception to what said is the Azure SQL Hyperscale SKU always provide 100 MB/Sec of maximum log throughput, no matter the number of vCores.
+There are a couple of exceptions to what just described:
+- [Azure SQL Hyperscale](https://docs.microsoft.com/en-us/azure/azure-sql/database/service-tier-hyperscale) always provides 100 MB/Sec of maximum log throughput, no matter the number of vCores. Of course, if using a small number of cores on Hyperscale, other factors (for example: sorting when inserting into a table with indexes) could come into play and prevent you to reach the mentioned 100 Mb/Sec. 
+- [M-series](https://docs.microsoft.com/en-us/azure/azure-sql/database/service-tiers-vcore?tabs=azure-portal#m-series) that can do up to 256 MB/sec of log throughput.
 
 ## Observed Performances
 
@@ -157,14 +159,14 @@ There is no official documentation, but from all my test the answer is YES. I've
 
 ### How to generate destination database schema?
 
-Smart Bulk Copy only copies data between existing database and existings objects. It will NOT create database or tables for you. This allows you to have full control on how database and tables are created. If you are migrating your database and you'll like to have the schema automatically created for you, you can use one of the two following tool:
+Smart Bulk Copy only copies data between existing database and existing objects. It will NOT create database or tables for you. This allows you to have full control on how database and tables are created. If you are migrating your database and you'll like to have the schema automatically created for you, you can use one of the two following tool:
 
 - [Database Migration Assistant](https://docs.microsoft.com/en-us/sql/dma/dma-overview?view=sql-server-2017)
 - [mssql-scripter](https://github.com/microsoft/mssql-scripter)
 
 ### How can I be sure I'm moving data as fast as possible?
 
-Remember that Azure SQL cannot go faster that ~100 MB/sec due to log rate governance. The best practices to quickly load data into a table can be found here:
+Remember that Azure SQL cannot go faster that ~100 MB/sec due to log flush speed governance. The best practices to quickly load data into a table can be found here:
 
 - [Prerequisites for Minimal Logging in Bulk Import](https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import?view=sql-server-2017)
 - Old but still applicable: [The Data Loading Performance Guide](https://docs.microsoft.com/en-us/previous-versions/sql/sql-server-2008/dd425070(v=sql.100)?redirectedfrom=MSDN)
@@ -193,13 +195,27 @@ Recreate Foreign Key constraints and indexes after the data has been copied succ
 
 If you have a huge table you may want to bulk load data WITHOUT removing the Clustered Index so to avoid the need to recreate in once on Azure SQL, as if the table is really big (for example, 500GB size and more) rebuilding the Clustered Index could be a very resource and time-consuming operation. In such case you may want to keep the clustered index. From version 1.7 Smart Bulk Copy will allow you to do that. 
 
+### Temporal Tables Support
+
+Work In Progress
+
+https://docs.microsoft.com/en-us/sql/relational-databases/tables/temporal-table-usage-scenarios?view=sql-server-ver15#enabling-system-versioning-on-an-existing-table-for-data-audit
+
+```sql
+alter table <schema>.<table> 
+add period FOR SYSTEM_TIME (<column>, <column>);
+
+ALTER TABLE <schema>.<table>
+SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = <schema>.<table>));
+```
+
 ### I would change the code here and there, can I?
 
 Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. Code can be largely improved even, if I tried to apply some of the best practices, but when I had to make some choice I chose simplicity over everything else.
 
 ## Tests
 
-This tool has been tested agains the following sample database with success:
+This tool has been tested against the following sample database with success:
 
 - TPC-H (1)
 - TPC-E (1)
