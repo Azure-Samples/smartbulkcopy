@@ -193,7 +193,7 @@ Recreate Foreign Key constraints and indexes after the data has been copied succ
 
 ### I have a huge database and recreating indexes could be a challenge
 
-If you have a huge table you may want to bulk load data WITHOUT removing the Clustered Index so to avoid the need to recreate in once on Azure SQL, as if the table is really big (for example, 500GB size and more) rebuilding the Clustered Index could be a very resource and time-consuming operation. In such case you may want to keep the clustered index. From version 1.7 Smart Bulk Copy will allow you to do that. 
+If you have a huge table you may want to bulk load data WITHOUT removing the Clustered Index so to avoid the need to recreate it once on Azure SQL. If the table is really big (for example, 500GB size and more) rebuilding the Clustered Index could be a very resource and time-consuming operation. In such case you may want to keep the clustered index. From version 1.7 Smart Bulk Copy will allow you to do that. 
 
 ### Temporal Tables Support
 
