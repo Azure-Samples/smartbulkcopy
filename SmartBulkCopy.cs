@@ -691,7 +691,8 @@ namespace SmartBulkCopy
                                 if (copyInfo.DestinationTableInfo.PrimaryIndex is ColumnStoreClusteredIndex) 
                                 {
                                     // Make sure Columnstore will have as few rowgroups as possible
-                                    bulkCopy.BatchSize = 102400;
+                                    if (bulkCopy.BatchSize < 102400) bulkCopy.BatchSize = 102400;
+                                    _logger.Debug($"Task {taskId}: Forcing BatchSize to 102400");
                                 } else {
                                     bulkCopy.BatchSize = _config.BatchSize;
                                 }
