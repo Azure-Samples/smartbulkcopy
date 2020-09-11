@@ -435,6 +435,8 @@ namespace SmartBulkCopy
                         [is_computed] = 0 
                     and 
                         [is_column_set] = 0
+                    and 
+                        [system_type_id] not in (189) -- timestamp/rowversion
                     ";
 
             LogDebug($"Executing:\n{sql}");

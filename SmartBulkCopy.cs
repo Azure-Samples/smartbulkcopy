@@ -848,11 +848,21 @@ namespace SmartBulkCopy
             var conn = new SqlConnection(_config.SourceConnectionString);
 
             var internalTablesToCopy = new List<String>();
-            foreach (var t in sourceList)
+            foreach (var s in sourceList)
             {
+                var mode = "+";
+                var t = s;
+
+                // Handle inclusion and exclusion prefixes
+                if (s.Substring(0, 2) == "+:" || s.Substring(0, 2) == "-:")
+                {
+                    mode = s.Substring(0, 1);
+                    t = s.Substring(2);
+                }
+
                 if (t.Contains("*"))
                 {
-                    _logger.Info($"Wildcard found: '{t}'. Getting list of tables to copy...");
+                    _logger.Debug($"Wildcard found: '{t}'. Getting list of tables to copy...");
                     var tables = conn.Query(@"
                         select 
                             [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
@@ -873,17 +883,40 @@ namespace SmartBulkCopy
                         bool matches = Regex.IsMatch(tb.Name.Replace("[", "").Replace("]", ""), regExPattern); // TODO: Improve wildcard matching
                         if (matches)
                         {
-                            _logger.Info($"Adding via wildcard {tb.Name}...");
-                            internalTablesToCopy.Add(tb.Name);
+                            if (mode == "+")
+                            {
+                                _logger.Debug($"Including via wildcard {tb.Name}...");
+                                internalTablesToCopy.Add(tb.Name);
+                            } else {
+                                _logger.Debug($"Excluding via wildcard {tb.Name}...");
+                                internalTablesToCopy.Remove(tb.Name);
+                            }
                         }
                     }
                 }
                 else
                 {
-                    _logger.Info($"Adding {t}...");
-                    internalTablesToCopy.Add(t);
+                    var parts = t.Split('.');                    
+                    var qt = string.Join('.', parts.Select( p => {
+                        string n = "";
+                        if (!p.StartsWith('[')) n += "[";
+                        n += p;
+                        if (!p.EndsWith(']')) n += "]";
+                        return n;
+                    }).ToArray());
+
+                    if (mode == "+")
+                    {
+                        _logger.Debug($"Including {qt}...");
+                        internalTablesToCopy.Add(qt);
+                    } else {
+                        _logger.Debug($"Excluding {qt}...");
+                        internalTablesToCopy.Remove(qt);
+                    }
                 }
             }
+
+            internalTablesToCopy.ForEach( t => _logger.Info($"Queueing table {t}..."));
 
             return internalTablesToCopy;
         }

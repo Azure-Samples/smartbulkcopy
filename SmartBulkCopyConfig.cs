@@ -174,9 +174,26 @@ namespace SmartBulkCopy
                 }
             }
             
-            var tablesArray = config.GetSection("tables").GetChildren();                        
-            foreach(var t in tablesArray) {
-                sbcc.TablesToCopy.Add(t.Value);
+            // Support for Include and Exclude or fall back to old "include-only" behavior
+            var includeTables = config.GetSection("tables:include")?.GetChildren();
+            if (includeTables.Count() != 0) 
+            {
+                foreach(var t in includeTables) {
+                    sbcc.TablesToCopy.Add("+:" + t.Value);
+                }
+
+                var excludeTables = config.GetSection("tables:exclude")?.GetChildren();
+                if (excludeTables != null)
+                {
+                    foreach(var t in excludeTables) {
+                        sbcc.TablesToCopy.Add("-:" + t.Value);
+                    }
+                }
+            } else {
+                var tablesArray = config.GetSection("tables").GetChildren();                        
+                foreach(var t in tablesArray) {
+                    sbcc.TablesToCopy.Add(t.Value);
+                }
             }
 
             return sbcc;
