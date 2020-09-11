@@ -199,6 +199,7 @@ If you have a huge table you may want to bulk load data WITHOUT removing the Clu
 
 Work In Progress
 
+https://docs.microsoft.com/en-us/sql/relational-databases/tables/creating-a-system-versioned-temporal-table?redirectedfrom=MSDN&view=sql-server-ver15#alter-non-temporal-table-to-be-a-system-versioned-temporal-table
 https://docs.microsoft.com/en-us/sql/relational-databases/tables/temporal-table-usage-scenarios?view=sql-server-ver15#enabling-system-versioning-on-an-existing-table-for-data-audit
 
 ```sql
