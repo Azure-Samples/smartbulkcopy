@@ -112,7 +112,7 @@ namespace SmartBulkCopy
             var internalTablesToCopy = GetTablesToCopy(tablesToCopy.Distinct());
             _tablesToCopy.AddRange(internalTablesToCopy);
 
-            _logger.Info("Analyzing tables...");
+            _logger.Info("Gathering tables info...");
             var ticSource = new TablesInfoCollector(_config.SourceConnectionString, internalTablesToCopy, _logger);
             var ticDestination = new TablesInfoCollector(_config.DestinationConnectionString, internalTablesToCopy, _logger);
    
@@ -124,6 +124,7 @@ namespace SmartBulkCopy
             var tiSource = await ti1;
             var tiDestination = await ti2;
 
+            _logger.Info("Analyzing tables...");
             var copyInfo = new List<CopyInfo>();
             foreach (var t in internalTablesToCopy)
             {
@@ -145,8 +146,31 @@ namespace SmartBulkCopy
                     return 1;
                 }
 
-                // To DO
-                // If destination table has secondary indexes then stop
+                // Check for Secondary Indexes
+                if (destinationTable.SecondaryIndexes > 0)
+                {
+                    _logger.Info($"{t} destination table has {destinationTable.SecondaryIndexes} Secondary Indexes...");
+                    if (_config.StopIf.HasFlag(StopIf.SecondaryIndex))
+                    {
+                        _logger.Error("Stopping as Secondary Indexes have been detected on destination table.");
+                        return 1;
+                    } else {
+                        _logger.Warn($"WARNING! Secondary Indexes detected on {t}. Data transfer performance will be severely affected!");
+                    }
+                }
+                
+                // Check if dealing with a Temporal Table
+                if (destinationTable.Type != TableType.Regular)
+                {
+                    _logger.Info($"{t} destination table is {destinationTable.Type}...");
+                    if (_config.StopIf.HasFlag(StopIf.TemporalTable))
+                    {
+                        _logger.Error($"Stopping a destination table {t} is a Temporal Table. Disable Temporal Tables on the destination.");
+                        return 1;
+                    } else {
+                        _logger.Warn($"WARNING! Destination table {t} is a Temporal Table. System Versioning will be automatically disabled and re-enabled to allow bulk load.");
+                    }                    
+                }
 
                 // Check if partitioned load is possible
                 if  (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex is Heap)
@@ -271,19 +295,25 @@ namespace SmartBulkCopy
 
             if (_config.TruncateTables)
             {
+                _logger.Info("Disabling system versioned tables, if any...");
+                internalTablesToCopy.ForEach(t => DisableSystemVersioning(tiDestination.Find(t2 => t2.TableName == t)));
+
                 _logger.Info("Truncating destination tables...");
                 internalTablesToCopy.ForEach(t => TruncateDestinationTable(t));
             }            
 
-            _logger.Info($"Copying using {_config.MaxParallelTasks} parallel tasks.");
+            _logger.Info($"Copying using up to {_config.MaxParallelTasks} parallel tasks.");
             var tasks = new List<Task>();
-            foreach (var i in Enumerable.Range(1, _config.MaxParallelTasks))
+            var taskCount = _config.MaxParallelTasks;
+            if (taskCount > internalTablesToCopy.Count()) taskCount = internalTablesToCopy.Count();
+            foreach (var i in Enumerable.Range(1, taskCount))
             {
                 tasks.Add(new Task(() => BulkCopy(i)));
             }
 
             _logger.Info($"Starting monitor...");
-            var monitorTask = Task.Run(() => MonitorCopyProcess());
+            var ctsMonitor = new CancellationTokenSource();
+            var monitorTask = Task.Run(() => MonitorCopyProcess(ctsMonitor.Token));
 
             _logger.Info($"Start copying...");
             _stopwatch.Start();
@@ -298,8 +328,15 @@ namespace SmartBulkCopy
             }
             else
             {
-                // TODO: cancel monitor execution
+                ctsMonitor.Cancel();
+                monitorTask.Wait();
             }
+
+            if (_config.TruncateTables)
+            {
+                _logger.Info("Re-Enabling system versioned tables, if any...");
+                internalTablesToCopy.ForEach(t => EnableSystemVersioning(tiDestination.Find(t2 => t2.TableName == t)));
+            }      
 
             int result = 0;
 
@@ -327,7 +364,33 @@ namespace SmartBulkCopy
             }
 
             return result;
-        }                
+        }
+
+        private void DisableSystemVersioning(TableInfo tableInfo)
+        {
+            if (tableInfo.Type == TableType.SystemVersionedTemporal)
+            {
+                var tableName = tableInfo.TableName;
+                _logger.Info($"Disabling system versioning on '{tableName}'...");
+                var dc = new SqlConnection(_config.DestinationConnectionString);
+                
+                dc.ExecuteScalar($"alter table {tableName} set (system_versioning = off)");
+                dc.ExecuteScalar($"alter table {tableName} drop period for system_time");
+            }
+        }
+
+        private void EnableSystemVersioning(TableInfo tableInfo)
+        {
+            if (tableInfo.Type == TableType.SystemVersionedTemporal)
+            {
+                var tableName = tableInfo.TableName;
+                _logger.Info($"Re-Enabling system versioning on '{tableName}'...");
+                var dc = new SqlConnection(_config.DestinationConnectionString);
+                
+                dc.ExecuteScalar($"alter table {tableName} add period for system_time ({tableInfo.HistoryInfo.PeriodStartColumn}, {tableInfo.HistoryInfo.PeriodEndColumn})");
+                dc.ExecuteScalar($"alter table {tableName} set (system_versioning = on (history_table = {tableInfo.HistoryInfo.HistoryTable}))");                
+            }
+        }
 
         private bool CheckDatabaseSnapshot()
         {
@@ -339,7 +402,7 @@ namespace SmartBulkCopy
         private bool CheckDatabaseReadonly()
         {
             var conn = new SqlConnection(_config.SourceConnectionString);
-            var isReadOnly = conn.ExecuteScalar<int>("SELECT [is_read_only] FROM sys.databases WHERE [database_id] = DB_ID()");
+            var isReadOnly = conn.ExecuteScalar<int>("select [is_read_only] from sys.databases where [database_id] = DB_ID()");
             return (isReadOnly == 1);
         }
 
@@ -390,8 +453,8 @@ namespace SmartBulkCopy
         private void TruncateDestinationTable(string tableName)
         {
             _logger.Info($"Truncating '{tableName}'...");
-            var destinationConnection = new SqlConnection(_config.DestinationConnectionString);
-            destinationConnection.ExecuteScalar($"TRUNCATE TABLE {tableName}");
+            var dc = new SqlConnection(_config.DestinationConnectionString);
+            dc.ExecuteScalar($"truncate table {tableName}");
         }
 
         private List<CopyInfo> CreatePhysicalPartitionedTableCopyInfo(TableInfo ti)
@@ -702,7 +765,7 @@ namespace SmartBulkCopy
             }
         }
 
-        private void MonitorCopyProcess()
+        private void MonitorCopyProcess(CancellationToken ct)
         {
             int attempts = 0;
             int waitTime = attempts * _delay;
@@ -711,6 +774,12 @@ namespace SmartBulkCopy
             {
                 try
                 {
+                    if (ct.IsCancellationRequested)
+                    {
+                        _logger.Warn("Monitor: Shutting down monitor due to cancellation request.");
+                        break;
+                    }
+
                     attempts += 1;
 
                     var errors = Interlocked.Read(ref _erroredTasks);

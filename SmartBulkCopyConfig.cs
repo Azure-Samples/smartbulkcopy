@@ -13,6 +13,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace SmartBulkCopy
 {
+    [Flags]
+    enum StopIf {
+        SecondaryIndex,
+        TemporalTable
+    }
     enum SafeCheck {
         None,
         Snapshot,
@@ -99,6 +104,8 @@ namespace SmartBulkCopy
 
         public SafeCheck SafeCheck = SafeCheck.ReadOnly;
 
+        public StopIf StopIf = StopIf.SecondaryIndex | StopIf.TemporalTable;
+
         public int RetryMaxAttempt = 5;
         
         public int RetryDelayIncrement = 10;
@@ -172,6 +179,13 @@ namespace SmartBulkCopy
                     default: 
                         throw new ArgumentException("Option safe-check can only contain 'none', 'readonly' or 'snapshot' values.");
                 }
+            }
+
+            var stopIf = config.GetSection("options:stop-if")?.GetChildren();
+            foreach(var s in stopIf)
+            {
+                if (s.Key == "secondary-indexes" && bool.Parse(s.Value) == false) sbcc.StopIf -= StopIf.SecondaryIndex;
+                if (s.Key == "temporal-table" && bool.Parse(s.Value) == false) sbcc.StopIf -= StopIf.TemporalTable;                    
             }
             
             // Support for Include and Exclude or fall back to old "include-only" behavior

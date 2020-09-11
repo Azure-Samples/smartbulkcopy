@@ -16,6 +16,18 @@ using NLog;
 
 namespace SmartBulkCopy
 {
+    public class HistoryInfo
+    {
+        public string HistoryTable;
+        public string PeriodStartColumn;
+        public string PeriodEndColumn;
+
+    }
+    public enum TableType {
+        Regular = 0,
+        SystemVersionedTemporal = 2,
+        History = 1
+    }
     public class TableSize
     {
         public long RowCount = 0;
@@ -134,9 +146,13 @@ namespace SmartBulkCopy
         public readonly string TableName;
         public bool Exists;        
         public Index PrimaryIndex = new UnknownIndex();
+        public int SecondaryIndexes = 0;
         public List<string> Columns = new List<string>();
         public string TableLocation => $"{DatabaseName}.{TableName}@{ServerName}";
         public TableSize Size = new TableSize();
+        public TableType Type = TableType.Regular;
+        
+        public HistoryInfo HistoryInfo = null;
         
         public TableInfo(string serverName, string databaseName, string tableName)
         {
@@ -213,10 +229,8 @@ namespace SmartBulkCopy
             await GetHeapInfoAsync();
             await GetRowStoreClusteredInfoAsync();
             await GetColumnStoreClusteredInfoAsync();
-
-            // Check if secondary index exists
-            // TODO -> Is really needed?
-
+            await GetSecondaryIndexesCountAsync();
+            await GetTableTypeAsync();
             await GetTableSizeAsync();
             await GetColumnsForBulkCopyAsync();
 
@@ -443,6 +457,67 @@ namespace SmartBulkCopy
 
             var columns = await _conn.QueryAsync<string>(sql, new { @tableName = _tableInfo.TableName });
             _tableInfo.Columns = columns.ToList();            
+        }
+
+        private async Task GetTableTypeAsync()
+        {
+            LogDebug($"Identifying table type...");
+
+            var sql = $@"
+                    select 
+                        [temporal_type]
+                    from 
+                        sys.tables
+                    where 
+                        [object_id] = object_id(@tableName) 
+                    ";
+
+            LogDebug($"Executing:\n{sql}");
+
+            _tableInfo.Type = await _conn.QuerySingleAsync<TableType>(sql, new { @tableName = _tableInfo.TableName });
+
+            if (_tableInfo.Type == TableType.SystemVersionedTemporal)
+            {
+                LogDebug($"Getting details on system versioning table and columns...");
+
+                sql = $@"
+                    select
+                        QUOTENAME(SCHEMA_NAME(h.schema_id)) + '.' + QUOTENAME(h.name) as HistoryTable,
+                        (select QUOTENAME([name]) from sys.columns c1 where c1.[object_id] = t.[object_id] and [generated_always_type] = 1) as PeriodStartColumn,
+                        (select QUOTENAME([name]) from sys.columns c1 where c1.[object_id] = t.[object_id] and [generated_always_type] = 2) as PeriodEndColumn
+                    from
+                        sys.tables t
+                    inner join
+                        sys.tables h  on t.[history_table_id] = h.[object_id]
+                    where 
+                        t.[object_id] = object_id(@tableName) 
+                ";
+
+                LogDebug($"Executing:\n{sql}");
+
+                _tableInfo.HistoryInfo = await _conn.QuerySingleAsync<HistoryInfo>(sql, new { @tableName = _tableInfo.TableName });
+            }
+
+        }
+
+        private async Task GetSecondaryIndexesCountAsync()
+        {
+            LogDebug($"Gathering secondary indexes info...");
+
+            var sql = $@"
+                    select 
+                        count(*) as SecondaryIndexesCount
+                    from 
+                        sys.indexes 
+                    where 
+                        [object_id] = object_id(@tableName) 
+                    and
+                        [type] not in (0,1,5)
+                    ";
+
+            LogDebug($"Executing:\n{sql}");
+
+            _tableInfo.SecondaryIndexes = await _conn.QuerySingleOrDefaultAsync<int>(sql, new { @tableName = _tableInfo.TableName });
         }
 
         private void LogDebug(string message)

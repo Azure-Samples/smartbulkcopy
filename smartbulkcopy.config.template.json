@@ -5,13 +5,20 @@
     "destination":{
         "connection-string": "Server=;Initial Catalog=;Connection Timeout=90;"
     },
-    "tables": ["*"],
+    "tables": {
+        "include": ["*"],
+        "exclude": []
+    },
     "options": {
         "tasks": 8,
         "logical-partitions": "auto",
         "batch-size": 100000,
         "truncate-tables": true,
         "safe-check": "readonly",
+        "stop-if": {
+            "secondary-indexes": true,
+            "temporal-table": true 
+        },
         "retry-connection": {
             "delay-increment": 10,
             "max-attempt": 5
