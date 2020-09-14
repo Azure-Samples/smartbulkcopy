@@ -6,7 +6,7 @@ Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server d
 
 It can be used to efficiently and quickly move data from two instances of SQL Server running in two different cloud providers or to move from on-premises to the cloud.
 
-Smart Bulk Copy is also available as a Docker Image: https://hub.docker.com/repository/docker/yorek/smartbulkcopy
+Smart Bulk Copy is also available as a [Docker Image](https://hub.docker.com/repository/docker/yorek/smartbulkcopy).
 
 ## How it works
 
