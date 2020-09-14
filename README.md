@@ -1,6 +1,6 @@
 # Smart Bulk Copy
 
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg) ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/yorek/smartbulkcopy)
 
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
