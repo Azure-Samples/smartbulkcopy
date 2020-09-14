@@ -197,18 +197,26 @@ If you have a huge table you may want to bulk load data WITHOUT removing the Clu
 
 ### Temporal Tables Support
 
-Work In Progress
-
-https://docs.microsoft.com/en-us/sql/relational-databases/tables/creating-a-system-versioned-temporal-table?redirectedfrom=MSDN&view=sql-server-ver15#alter-non-temporal-table-to-be-a-system-versioned-temporal-table
-https://docs.microsoft.com/en-us/sql/relational-databases/tables/temporal-table-usage-scenarios?view=sql-server-ver15#enabling-system-versioning-on-an-existing-table-for-data-audit
+From version 1.7.1 Smart Bulk Copy can detect and handle Temporal Tables. When a temporal table is detected on the destination database, it will be disabled to allow bulk insert. 
 
 ```sql
-alter table <schema>.<table> 
-add period FOR SYSTEM_TIME (<column>, <column>);
+ALTER TABLE <schema>.<table> DROP PERIOD FOR SYSTEM_TIME;
+ALTER TABLE <schema>.<table> SET (SYSTEM_VERSIONING = OFF);
+```
+
+After the Smart Bulk Copy process has finished, the Temporal Table support will be re-enabled
+
+```sql
+ALTER TABLE <schema>.<table> 
+ADD PERIOD FOR SYSTEM_TIME (<period_start_column>, <period_end_column>);
 
 ALTER TABLE <schema>.<table>
-SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = <schema>.<table>));
+SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = <schema>.<history_table>));
 ```
+
+If you prefer to handle this process manually, of if Smart Bulk Copy was stopped via Ctrl-C while copying the table, you may need to manually re-enable the temporal support. In any case, please read the following links:
+
+[Alter non-temporal table to be a system-versioned temporal table](https://docs.microsoft.com/en-us/sql/relational-databases/tables/creating-a-system-versioned-temporal-table?view=sql-server-ver15#alter-non-temporal-table-to-be-a-system-versioned-temporal-table)
 
 ### I would change the code here and there, can I?
 
