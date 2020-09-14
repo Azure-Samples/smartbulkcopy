@@ -86,6 +86,15 @@ You can use schema to limit the wildcard scope:
 'tables': ['dbo.*']
 ```
 
+From **version 1.7.1** you can also specify tables to be included and excluded:
+
+```
+"tables": {
+    "include": ["dbo.*"],
+    "exclude": ["dbo.ORDERS"]
+}
+```
+
 #### Copy behavior
 
 You can fine tune Smart Bulk Copy behavior with the configuration settings available in `option` section:
@@ -119,6 +128,24 @@ Instruct Smart Bulk Copy to truncate tables on the destination before loading th
 
 Check that source database is actually a database snapshot or that database is set to readonly mode. Using one of the two options is recommended to avoid data modification while copy is in progress as this can lead to inconsistencies. Supported values are `readonly` and `snapshot`. If you want to disable the safety check use `none`: disabling the security check is *not* recommended.
 
+`"stop-if": {"secondary-indexes": true, "temporal-table": true}`
+
+Introduced in **version 1.7.1** allows to set when Smart Bulk Copy should not even start the bulk copy process as some table in the destination are not set for maximum performance or 
+
+The available options are:
+
+`"secondary-indexes": true`
+
+Stop Smart Bulk Copy if secondary indexes are detected on any table in the destination. Secondary indexes can slow down a lot the copy process and even cause deadlocks. Unless you have very strong reasons for not creating secondary indexes *after* bulk load has been done, keep this option to `true`
+
+`"temporal-table": true`
+
+If Smart Bulk Copy detects a Temporal Table on the destintation database, it will stop by default. If this options is set to `false` Smart Bulk Copy will automatically disable and re-enabled Temporal Tables in the destination. As this operation requires execution of an `ALTER TABLE`, make sure the used login accout has enough permission and that you are confident and happy of what happen behind the scenes: [DisableSystemVersioning()](https://github.com/yorek/smartbulkcopy/blob/47d0e2347e2e18d62eadbf7be2d9a809022ff787/SmartBulkCopy.cs#L373) and [EnableSystemVersioning()](https://github.com/yorek/smartbulkcopy/blob/47d0e2347e2e18d62eadbf7be2d9a809022ff787/SmartBulkCopy.cs#L386)
+
+`"retry-connection": {"delay-increment": 10, "max-attempt": 5}`
+
+Defines how many times an operation should be attempted if a disconnection is detected and how much time (in seconds) should pass between two retries. Delay is incremented by `delay-incremement` every time a new attempt is tried.
+ 
 ## Notes on Azure SQL
 
 Azure SQL is log-rated as described in [Transaction Log Rate Governance](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server#transaction-log-rate-governance) and it can do 96 MB/sec of log flushing. Smart Bulk Load will report the detected log flush speed every 5 seconds so that you can check if you can actually increase the number of parallel task to go faster or you're already at the limit. Please remember that 96 MB/Sec are done with higher SKU, so if you're already using 7 parallel tasks and you're not seeing something close to 96 MB/Sec please check that
