@@ -1,5 +1,7 @@
 # Smart Bulk Copy
 
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
 It can be used to efficiently and quickly move data from two instances of SQL Server running in two different cloud providers or to move from on-premises to the cloud.
