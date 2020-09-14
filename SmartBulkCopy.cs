@@ -309,14 +309,14 @@ namespace SmartBulkCopy
             _logger.Info($"Copying using up to {_config.MaxParallelTasks} parallel tasks.");
             var tasks = new List<Task>();
             var taskCount = _config.MaxParallelTasks;
-            if (taskCount > internalTablesToCopy.Count()) taskCount = internalTablesToCopy.Count();
+            if (taskCount > copyInfo.Count()) taskCount = copyInfo.Count();
             foreach (var i in Enumerable.Range(1, taskCount))
             {
                 tasks.Add(new Task(() => BulkCopy(i, ctsCopy.Token)));
             }
 
             _logger.Info($"Starting monitor...");
-            Console.CancelKeyPress += new ConsoleCancelEventHandler(this.ConsolCancelHandler);
+            Console.CancelKeyPress += new ConsoleCancelEventHandler(this.ConsoleCancelHandler);
             var monitorTask = Task.Run(() => MonitorCopyProcess(ctsMonitor.Token));
 
             _logger.Info($"Start copying...");
@@ -714,6 +714,7 @@ namespace SmartBulkCopy
                                     if (innerTask != null)
                                     {
                                         var ine = innerTask.Exception?.InnerException ?? ex;
+                                        if (ine is AggregateException) ine = (ine as AggregateException).Flatten();
                                         while (ine != null)
                                         {
                                             // If a SqlException or InvalidOperationException is found in the AggregateExceptions, 
@@ -721,11 +722,10 @@ namespace SmartBulkCopy
                                             if (ine is SqlException) throw (ine as SqlException);
                                             if (ine is InvalidOperationException) throw (ine as InvalidOperationException);
                                             if (ine is TaskCanceledException) throw (ine as TaskCanceledException);
-                                            if (!(ine is AggregateException)) 
-                                                _logger.Error($"Task {taskId}@WriteToServerAsync: [{ine.GetType()}] {ine.Message}");
+                                            if (!(ine is AggregateException)) _logger.Error($"Task {taskId}@WriteToServerAsync: [{ine.GetType()}] {ine.Message}");
                                             ine = ine.InnerException;                                            
                                         }
-                                        throw;
+                                        throw ex;
                                     }                                    
                                 }
 
@@ -799,20 +799,19 @@ namespace SmartBulkCopy
                 bool canceled = false;
                 Interlocked.Add(ref _erroredTasks, 1);
                 var ie = ex;
+                if (ie is AggregateException) ie = (ie as AggregateException).Flatten();
                 while (ie != null)
                 {
                     if (ie is TaskCanceledException) canceled = true;
-                    if (ie is OperationCanceledException) canceled = true;                    
-                    if (!(ie is System.AggregateException))
+                    if (ie is OperationCanceledException) canceled = true;                                        
+                    var se = ie as SqlException; 
+                    if (se != null)
+                    {                        
+                        _logger.Error($"Task {taskId}: [{se.Number}] {se.Message}");
+                    } else 
                     {
-                        var se = ie as SqlException; 
-                        if (se != null)
-                        {
-                            _logger.Warn($"Task {taskId}: [{se.Number}] {se.Message}");
-                        } else 
-                        {
+                        if (!(ie is TaskCanceledException) && !(ie is OperationCanceledException))
                             _logger.Error($"Task {taskId}: [{ex.GetType()}] {ex.Message}");
-                        }
                     }
                     ie = ie.InnerException;
                 }
@@ -821,7 +820,7 @@ namespace SmartBulkCopy
                 {
                     _logger.Error($"Task {taskId}: Completed with errors.");
                 } else {
-                    _logger.Error($"Task {taskId}: Execution has been canceled.");
+                    _logger.Warn($"Task {taskId}: Execution has been canceled.");
                 }
             }
             finally
@@ -1058,12 +1057,12 @@ namespace SmartBulkCopy
             return internalTablesToCopy;
         }
 
-        private void ConsolCancelHandler(object sender, ConsoleCancelEventArgs args)
+        private void ConsoleCancelHandler(object sender, ConsoleCancelEventArgs args)
         {
             if (!ctsCopy.IsCancellationRequested)
             {
-                _logger.Info("Cancelling Smart Bulk Copy execution. Asking tasks to cancel...");
-                _logger.Info("(CTRL+C again to terminate the process abruptly)");                
+                _logger.Warn("Cancelling Smart Bulk Copy execution. Asking tasks to cancel (this may take some minutes, please be patient)...");
+                _logger.Warn("(CTRL+C again to terminate the process abruptly)");                
                 ctsCopy.Cancel();
                 ctsMonitor.Cancel();
                 args.Cancel = true;
