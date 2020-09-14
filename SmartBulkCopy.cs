@@ -24,10 +24,11 @@ namespace SmartBulkCopy
         // Added Error Code 11001 to handle transient network errors
         // Added Error Code 10065 to handle transient network errors
         // Added Error Code 10060 to handle transient network errors
+        // Added Error Code 64 to handle transient network errors
         // Added Error Code 121 to handle transient network errors
-        // Added Error Code 258 to handle transient login erros
+        // Added Error Code 258 to handle transient login errors
 
-        private readonly List<int> _transientErrors = new List<int>() { 0, 53, 121, 258, 4891, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920, 10054, 11001, 10065, 10060, 10051 };
+        private readonly List<int> _transientErrors = new List<int>() { 0, 53, 64, 121, 258, 4891, 10054, 4060, 40197, 40501, 40613, 49918, 49919, 49920, 10054, 11001, 10065, 10060, 10051 };
         private int _maxAttempts = 5;
         private int _delay = 10; // seconds
         private readonly ILogger _logger;
@@ -38,6 +39,9 @@ namespace SmartBulkCopy
         private readonly ConcurrentDictionary<string, string> _activeTasks = new ConcurrentDictionary<string, string>();
         private long _runningTasks = 0;
         private long _erroredTasks = 0;
+
+        private CancellationTokenSource ctsMonitor = new CancellationTokenSource();
+        private CancellationTokenSource ctsCopy = new CancellationTokenSource();
 
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
@@ -308,11 +312,11 @@ namespace SmartBulkCopy
             if (taskCount > internalTablesToCopy.Count()) taskCount = internalTablesToCopy.Count();
             foreach (var i in Enumerable.Range(1, taskCount))
             {
-                tasks.Add(new Task(() => BulkCopy(i)));
+                tasks.Add(new Task(() => BulkCopy(i, ctsCopy.Token)));
             }
 
             _logger.Info($"Starting monitor...");
-            var ctsMonitor = new CancellationTokenSource();
+            Console.CancelKeyPress += new ConsoleCancelEventHandler(this.ConsolCancelHandler);
             var monitorTask = Task.Run(() => MonitorCopyProcess(ctsMonitor.Token));
 
             _logger.Info($"Start copying...");
@@ -576,7 +580,7 @@ namespace SmartBulkCopy
             return copyInfo;
         }
 
-        private void BulkCopy(int taskId)
+        private void BulkCopy(int taskId, CancellationToken ct)
         {
             CopyInfo copyInfo;
             _logger.Info($"Task {taskId}: Started...");
@@ -587,10 +591,15 @@ namespace SmartBulkCopy
             {
                 while (_queue.TryDequeue(out copyInfo))
                 {
-                    if (copyInfo is NoPartitionsCopyInfo)
-                        _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName}...");
-                    else
-                        _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} partition {copyInfo.PartitionNumber}...");
+                    var bulkLoadMessage = $"Task {taskId}: Bulk copying table {copyInfo.TableName}";
+
+                    if (!(copyInfo is NoPartitionsCopyInfo))
+                        bulkLoadMessage += $" partition {copyInfo.PartitionNumber}";
+
+                    if (copyInfo.GetOrderBy().Trim() != string.Empty)
+                        bulkLoadMessage += $" (OrderBy: {copyInfo.GetOrderBy()})";
+
+                    _logger.Info(bulkLoadMessage + "...");
 
                     _activeTasks.AddOrUpdate(taskId.ToString(), copyInfo.TableName, (_1, _2) => { return copyInfo.TableName; });
                     _logger.Debug($"Task {taskId}: Added to ActiveTasks");
@@ -633,11 +642,7 @@ namespace SmartBulkCopy
                         if (attempts > 1)
                         {
                             _logger.Info($"Task {taskId}: Attempt {attempts} out of {_maxAttempts}.");
-
-                            if (copyInfo is NoPartitionsCopyInfo)
-                                _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} (OrderBy: {copyInfo.GetOrderBy()})...");
-                            else
-                                _logger.Info($"Task {taskId}: Bulk copying table {copyInfo.TableName} partition {copyInfo.PartitionNumber} (OrderBy: {copyInfo.GetOrderBy()})...");
+                            _logger.Info(bulkLoadMessage);
                         }
 
                         SqlConnection taskConn = null;
@@ -697,28 +702,72 @@ namespace SmartBulkCopy
                                     bulkCopy.BatchSize = _config.BatchSize;
                                 }
                             
-                                bulkCopy.WriteToServer(sourceReader);
+                                if (ct.IsCancellationRequested) 
+                                    ct.ThrowIfCancellationRequested();
+
+                                Task innerTask = null;
+                                try {
+                                    innerTask = bulkCopy.WriteToServerAsync(sourceReader, ct);
+                                    innerTask.Wait();
+                                } 
+                                catch (Exception ex) {
+                                    if (innerTask != null)
+                                    {
+                                        var ine = innerTask.Exception?.InnerException ?? ex;
+                                        while (ine != null)
+                                        {
+                                            // If a SqlException or InvalidOperationException is found in the AggregateExceptions, 
+                                            // throw it so that automatic retry can kick-in
+                                            if (ine is SqlException) throw (ine as SqlException);
+                                            if (ine is InvalidOperationException) throw (ine as InvalidOperationException);
+                                            if (ine is TaskCanceledException) throw (ine as TaskCanceledException);
+                                            if (!(ine is AggregateException)) 
+                                                _logger.Error($"Task {taskId}@WriteToServerAsync: [{ine.GetType()}] {ine.Message}");
+                                            ine = ine.InnerException;                                            
+                                        }
+                                        throw;
+                                    }                                    
+                                }
+
+                                _logger.Info($"Task {taskId}: Committing changes to {copyInfo.TableName}...");                     
                                 attempts = int.MaxValue;
                                 taskTran.Commit();
                             }
                         }
-                        catch (SqlException se)
+                        catch(OperationCanceledException)
+                        {
+                            attempts = int.MaxValue;
+                            throw;
+                        }
+                        catch(InvalidOperationException ioe)
+                        {
+                            waitTime = attempts * _delay;
+
+                            _logger.Warn($"Task {taskId}@Transaction: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
+                            _logger.Warn($"Task {taskId}@Transaction: [InvalidOperationException] {ioe.Message}");
+
+                            if (taskTran?.Connection != null) 
+                                taskTran.Rollback();
+
+                            Task.Delay(waitTime * 1000).Wait();   
+                        }
+                        catch(SqlException se)
                         {
                             if (_transientErrors.Contains(se.Number))
                             {
-                                if (taskTran?.Connection != null)
-                                    taskTran.Rollback();
-
                                 waitTime = attempts * _delay;
 
-                                _logger.Warn($"Task {taskId}: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
-                                _logger.Warn($"Task {taskId}: [{se.Number}] {se.Message}");
+                                _logger.Warn($"Task {taskId}@Transaction: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
+                                _logger.Warn($"Task {taskId}@Transaction: [SqlException:{se.Number}] {se.Message}");
+
+                                if (taskTran?.Connection != null)
+                                    taskTran.Rollback();
 
                                 Task.Delay(waitTime * 1000).Wait();
                             }
                             else
                             {
-                                throw;
+                                throw se;
                             }
                         }
                         finally
@@ -747,15 +796,33 @@ namespace SmartBulkCopy
             }
             catch (Exception ex)
             {
+                bool canceled = false;
                 Interlocked.Add(ref _erroredTasks, 1);
-                _logger.Error($"Task {taskId}: {ex.Message}");
-                var ie = ex.InnerException;
+                var ie = ex;
                 while (ie != null)
                 {
-                    _logger.Error($"Task {taskId}: {ex.Message}");
+                    if (ie is TaskCanceledException) canceled = true;
+                    if (ie is OperationCanceledException) canceled = true;                    
+                    if (!(ie is System.AggregateException))
+                    {
+                        var se = ie as SqlException; 
+                        if (se != null)
+                        {
+                            _logger.Warn($"Task {taskId}: [{se.Number}] {se.Message}");
+                        } else 
+                        {
+                            _logger.Error($"Task {taskId}: [{ex.GetType()}] {ex.Message}");
+                        }
+                    }
                     ie = ie.InnerException;
                 }
-                _logger.Error($"Task {taskId}: Completed with errors.");
+
+                if (!canceled)
+                {
+                    _logger.Error($"Task {taskId}: Completed with errors.");
+                } else {
+                    _logger.Error($"Task {taskId}: Execution has been canceled.");
+                }
             }
             finally
             {
@@ -989,6 +1056,21 @@ namespace SmartBulkCopy
             internalTablesToCopy.ForEach( t => _logger.Info($"Queueing table {t}..."));
 
             return internalTablesToCopy;
+        }
+
+        private void ConsolCancelHandler(object sender, ConsoleCancelEventArgs args)
+        {
+            if (!ctsCopy.IsCancellationRequested)
+            {
+                _logger.Info("Cancelling Smart Bulk Copy execution. Asking tasks to cancel...");
+                _logger.Info("(CTRL+C again to terminate the process abruptly)");                
+                ctsCopy.Cancel();
+                ctsMonitor.Cancel();
+                args.Cancel = true;
+            } else {
+                _logger.Warn("WARN: Terminating process immediately.");
+                _logger.Warn("WARN: Destination database may be left in an inconsistent state.");
+            }
         }
     }
 }
