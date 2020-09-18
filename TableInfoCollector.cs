@@ -139,19 +139,19 @@ namespace SmartBulkCopy
         }
     }
 
-    public class TableInfo 
+    public class TableInfo
     {
         public readonly string ServerName;
         public readonly string DatabaseName;
         public readonly string TableName;
-        public bool Exists;        
+        public bool Exists = true;
         public Index PrimaryIndex = new UnknownIndex();
         public int SecondaryIndexes = 0;
+        public int ForeignKeys = 0;
         public List<string> Columns = new List<string>();
         public string TableLocation => $"{DatabaseName}.{TableName}@{ServerName}";
         public TableSize Size = new TableSize();
-        public TableType Type = TableType.Regular;
-        
+        public TableType Type = TableType.Regular;        
         public HistoryInfo HistoryInfo = null;
         
         public TableInfo(string serverName, string databaseName, string tableName)
@@ -225,15 +225,16 @@ namespace SmartBulkCopy
             await CheckTableExistenceAsync();
             if (_tableInfo.Exists == false) return _tableInfo;
 
-            // Get info on primary index
+            // Get all other info
             await GetHeapInfoAsync();
             await GetRowStoreClusteredInfoAsync();
             await GetColumnStoreClusteredInfoAsync();
             await GetSecondaryIndexesCountAsync();
+            await GetForeignKeyCountInfo();
             await GetTableTypeAsync();
             await GetTableSizeAsync();
             await GetColumnsForBulkCopyAsync();
-
+           
             return _tableInfo;
         }
 
@@ -518,6 +519,24 @@ namespace SmartBulkCopy
             LogDebug($"Executing:\n{sql}");
 
             _tableInfo.SecondaryIndexes = await _conn.QuerySingleOrDefaultAsync<int>(sql, new { @tableName = _tableInfo.TableName });
+        }
+
+        private async Task GetForeignKeyCountInfo()
+        {
+            LogDebug($"Gathering foreign keys info...");
+
+            var sql = $@"
+                    select
+	                    count(*) as ForeignKeysCount
+                    from
+                        sys.[foreign_keys]
+                    where
+                        [parent_object_id] = object_id(@tableName) 
+                    ";
+
+            LogDebug($"Executing:\n{sql}");
+
+            _tableInfo.ForeignKeys = await _conn.QuerySingleOrDefaultAsync<int>(sql, new { @tableName = _tableInfo.TableName });
         }
 
         private void LogDebug(string message)

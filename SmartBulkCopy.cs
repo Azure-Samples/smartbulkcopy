@@ -162,6 +162,14 @@ namespace SmartBulkCopy
                         _logger.Warn($"WARNING! Secondary Indexes detected on {t}. Data transfer performance will be severely affected!");
                     }
                 }
+
+                // Check for Foreign Keys
+                if (destinationTable.ForeignKeys > 0)
+                {
+                    _logger.Error($"{t} destination table has {destinationTable.ForeignKeys} Foreign Keys...");
+                    _logger.Error("Stopping as Foreign Keys must be dropped in the destination table in order for Smart Bulk Copy to work.");
+                    return 1;
+                }
                 
                 // Check if dealing with a Temporal Table
                 if (destinationTable.Type != TableType.Regular)
@@ -179,33 +187,33 @@ namespace SmartBulkCopy
                 // Check if partitioned load is possible
                 if  (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex is Heap)
                 {
-                    _logger.Info($"{t} |> Source is partitioned and destination is heap. Parallel load enabled.");
-                    _logger.Info($"{t} |> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
+                    _logger.Info($"{t} -> Source is partitioned and destination is heap. Parallel load available.");
+                    _logger.Info($"{t} -> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
                     usePartitioning = true;
                 } else if (sourceTable.PrimaryIndex is Heap && destinationTable.PrimaryIndex is Heap)
                 {
-                    _logger.Info($"{t} |> Source and destination are not partitioned and both are heaps. Parallel load enabled.");
+                    _logger.Info($"{t} -> Source and destination are not partitioned and both are heaps. Parallel load available.");
                     usePartitioning = true;
                 } else if (sourceTable.PrimaryIndex.IsPartitioned == false && destinationTable.PrimaryIndex is Heap)
                 {
-                    _logger.Info($"{t} |> Source is not partitioned but destination is an heap. Parallel load enabled.");
+                    _logger.Info($"{t} -> Source is not partitioned but destination is an heap. Parallel load available.");
                     usePartitioning = true;
                 } else if ( 
                         (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned) &&
                         (sourceTable.PrimaryIndex.GetPartitionBy() == destinationTable.PrimaryIndex.GetPartitionBy()) &&
                         (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())
                     )  {
-                    _logger.Info($"{t} |> Source and destination tables have compatible partitioning logic. Parallel load enabled.");
-                    _logger.Info($"{t} |> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
+                    _logger.Info($"{t} -> Source and destination tables have compatible partitioning logic. Parallel load available.");
+                    _logger.Info($"{t} -> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
                     if (sourceTable.PrimaryIndex.GetOrderBy() != string.Empty) _logger.Info($"{t} |> Order By: {sourceTable.PrimaryIndex.GetOrderBy()}");
                     usePartitioning = true;
                 } else if (destinationTable.PrimaryIndex is ColumnStoreClusteredIndex)
                 {
-                    _logger.Info($"{t} |> Destination is a ColumnStore. Parallel load enabled.");
+                    _logger.Info($"{t} -> Destination is a ColumnStore. Parallel load available.");
                     usePartitioning = true;
                 }              
                 else {
-                    _logger.Info($"{t} |> Source and destination tables cannot be loaded in parallel.");
+                    _logger.Info($"{t} -> Source and destination tables do not support parallel loading.");
                     usePartitioning = false;
                 }
 
@@ -214,7 +222,7 @@ namespace SmartBulkCopy
                 {
                     if (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())                    
                     {
-                        _logger.Info($"{t} |> Source and destination clustered rowstore index have same ordering. Enabling ORDER hint.");
+                        _logger.Info($"{t} -> Source and destination clustered rowstore index have same ordering. Enabling ORDER hint.");
                         orderHintType = OrderHintType.ClusteredIndex;
 
                     }
@@ -223,7 +231,7 @@ namespace SmartBulkCopy
                 {
                     if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned)
                     {
-                        _logger.Info($"{t} |> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
+                        _logger.Info($"{t} -> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
                         orderHintType = OrderHintType.PartionKeyOnly;
                     }
                 } 
@@ -231,7 +239,7 @@ namespace SmartBulkCopy
                 {
                     if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned)
                     {
-                        _logger.Info($"{t} |> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
+                        _logger.Info($"{t} -> Source and destination are partitioned but not RowStores. Enabling ORDER hint on partition column.");
                         orderHintType = OrderHintType.PartionKeyOnly;
                     }
                 } 
@@ -274,7 +282,7 @@ namespace SmartBulkCopy
                     }
                     else
                     {
-                        _logger.Info($"{t} |> Table is small, partitioned copy will not be used.");
+                        _logger.Info($"{t} -> Table is small, partitioned copy will not be used.");
                         usePartitioning = false;
                     }
                 }
@@ -290,7 +298,7 @@ namespace SmartBulkCopy
                     partitionType = "None";
                 }
 
-                _logger.Info($"{t} |> Analysis result: usePartioning={usePartitioning}, partitionType={partitionType}, orderHintType={orderHintType}");
+                _logger.Info($"{t} -> Analysis result: usePartioning={usePartitioning}, partitionType={partitionType}, orderHintType={orderHintType}");
             }
 
             _logger.Info("Enqueueing work...");
@@ -484,7 +492,7 @@ namespace SmartBulkCopy
 
             var partitionCount = (int)conn.ExecuteScalar(sql1, new { @tableName = tableName });
 
-            _logger.Info($"{tableName} |> Table is partitioned. Bulk copy will be parallelized using {partitionCount} partition(s).");
+            _logger.Info($"{tableName} -> Parallel load will use {partitionCount} physical partition(s).");
 
             var sql2 = $@"
                 select 
@@ -566,7 +574,7 @@ namespace SmartBulkCopy
 
             var ps = (double)tableSize.SizeInGB / (double)partitionCount;
             var pc = (double)tableSize.RowCount / (double)partitionCount;
-            _logger.Info($"{tableName} |> Source table is not partitioned. Bulk copy will be parallelized using {partitionCount} logical partitions (Logical partition size: {ps:0.00} GB, Rows: {pc:0.00}).");
+            _logger.Info($"{tableName} -> Parallel load will use {partitionCount} logical partitions (Logical partition size: {ps:0.00} GB, Rows: {pc:0.00}).");
 
             foreach (var n in Enumerable.Range(1, (int)partitionCount))
             {
