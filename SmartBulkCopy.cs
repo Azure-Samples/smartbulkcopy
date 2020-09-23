@@ -181,6 +181,7 @@ namespace SmartBulkCopy
                         return 1;
                     } else {
                         _logger.Warn($"WARNING! Destination table {t} is a Temporal Table. System Versioning will be automatically disabled and re-enabled to allow bulk load.");
+                        _logger.Debug($"Temporal Table {t} uses {destinationTable.HistoryInfo.HistoryTable} for History. Period is {destinationTable.HistoryInfo.PeriodStartColumn} to {destinationTable.HistoryInfo.PeriodEndColumn}. Retention is {destinationTable.HistoryInfo.RetentionPeriod}");
                     }                    
                 }
 
@@ -400,7 +401,7 @@ namespace SmartBulkCopy
                 var dc = new SqlConnection(_config.DestinationConnectionString);
                 
                 dc.ExecuteScalar($"alter table {tableName} add period for system_time ({tableInfo.HistoryInfo.PeriodStartColumn}, {tableInfo.HistoryInfo.PeriodEndColumn})");
-                dc.ExecuteScalar($"alter table {tableName} set (system_versioning = on (history_table = {tableInfo.HistoryInfo.HistoryTable}))");                
+                dc.ExecuteScalar($"alter table {tableName} set (system_versioning = on (history_table = {tableInfo.HistoryInfo.HistoryTable}, history_retention_period = {tableInfo.HistoryInfo.RetentionPeriod}))");                
             }
         }
 

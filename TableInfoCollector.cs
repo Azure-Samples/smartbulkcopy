@@ -21,7 +21,7 @@ namespace SmartBulkCopy
         public string HistoryTable;
         public string PeriodStartColumn;
         public string PeriodEndColumn;
-
+        public string RetentionPeriod; 
     }
     public enum TableType {
         Regular = 0,
@@ -485,7 +485,8 @@ namespace SmartBulkCopy
                     select
                         QUOTENAME(SCHEMA_NAME(h.schema_id)) + '.' + QUOTENAME(h.name) as HistoryTable,
                         (select QUOTENAME([name]) from sys.columns c1 where c1.[object_id] = t.[object_id] and [generated_always_type] = 1) as PeriodStartColumn,
-                        (select QUOTENAME([name]) from sys.columns c1 where c1.[object_id] = t.[object_id] and [generated_always_type] = 2) as PeriodEndColumn
+                        (select QUOTENAME([name]) from sys.columns c1 where c1.[object_id] = t.[object_id] and [generated_always_type] = 2) as PeriodEndColumn,
+                        ISNULL(CAST(NULLIF([t].[history_retention_period], -1) AS SYSNAME) + ' ', '') + [t].[history_retention_period_unit_desc] as RetentionPeriod
                     from
                         sys.tables t
                     inner join
@@ -541,7 +542,7 @@ namespace SmartBulkCopy
 
         private void LogDebug(string message)
         {
-            _logger.Debug($"[{_tableInfo.TableLocation}] ${message}");
+            _logger.Debug($"[{_tableInfo.TableLocation}] {message}");
         }
     }
 }
