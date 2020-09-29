@@ -698,7 +698,13 @@ namespace SmartBulkCopy
                                     var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
                                     foreach (var ii in oc)
                                     {
-                                        bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
+                                        // If the order column is in the column list, then allow it, else skip it
+                                        // for example when the primary key is a calculated column, it will not be contained in the list of column to copy
+                                        // and so it must not be in the column order hint either, else you get an error
+                                        if (copyInfo.Columns.Contains(ii.ColumnName))
+                                        {
+                                            bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
+                                        }
                                     }
                                 }
 
