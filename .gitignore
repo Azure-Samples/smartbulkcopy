@@ -334,3 +334,4 @@ ASALocalRun/
 smartbulkcopy*.config
 smartbulkcopy*.config.json
 out/
+.vs/
