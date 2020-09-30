@@ -18,12 +18,6 @@ jobs:
       working-directory: tests
       run: dotnet restore      
     - name: Run Tests
-      working-directory: tests
-      env: 
-        source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
-        destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
-      run: dotnet test
-    - name: use this action, test solution dir
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
@@ -32,4 +26,5 @@ jobs:
         project_path: tests
         report_name: smart_bulk_copy_tests
         report_title: Smart Bulk Copy Tests
+        github_token: ${{ secrets.GITHUB_TOKEN }}
       
