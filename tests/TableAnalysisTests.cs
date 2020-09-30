@@ -98,6 +98,20 @@ namespace SmartBulkCopy.Tests
             Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionBy());
         }
 
+        [Test]
+        public async Task ClusteredRowstore_Big_Partitioned()
+        {
+            var tar = await AnalyzeTable("dbo.LINEITEM_CLUSTERED_ROWSTORE_PARTITIONED");
+
+            Assert.AreEqual(AnalysisOutcome.Success, tar.Outcome);
+            Assert.IsInstanceOf(typeof(PhysicalPartitionCopyInfo), tar.CopyInfo[0]);
+            Assert.AreEqual(85, tar.CopyInfo.Count);
+            Assert.AreEqual(OrderHintType.ClusteredIndex, tar.CopyInfo[0].OrderHintType);
+            Assert.AreEqual("L_ORDERKEY,L_LINENUMBER", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn: true));
+            Assert.AreEqual("L_ORDERKEY,L_LINENUMBER,L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn: false));
+            Assert.AreEqual("L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionBy());
+        }
+
 
         [Test]
         public async Task ClusteredColumnstore_Small()
@@ -125,6 +139,44 @@ namespace SmartBulkCopy.Tests
             Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn: true));
             Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn: false));
             Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionBy());
+        }
+
+        [Test]
+        public async Task ClusteredColumnstore_Big_Partitioned()
+        {
+            var tar = await AnalyzeTable("dbo.LINEITEM_CLUSTERED_COLUMNSTORE_PARTITIONED");
+
+            Assert.AreEqual(AnalysisOutcome.Success, tar.Outcome);
+            Assert.IsInstanceOf(typeof(PhysicalPartitionCopyInfo), tar.CopyInfo[0]);
+            Assert.AreEqual(85, tar.CopyInfo.Count);
+            Assert.AreEqual(OrderHintType.PartionKeyOnly, tar.CopyInfo[0].OrderHintType);
+            Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn: true));
+            Assert.AreEqual("L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderBy(excludePartitionColumn: false));
+            Assert.AreEqual("L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionBy());
+        }
+
+        [Test]
+        public async Task Table_With_ForeignKeys()
+        {
+            var tar = await AnalyzeTable("schema1.table_with_fk");
+
+            Assert.AreEqual(AnalysisOutcome.ForeignKeysFoundOnDestination, tar.Outcome);
+        }
+
+        [Test]
+        public async Task Table_With_SecondaryIndexes()
+        {
+            var tar = await AnalyzeTable("schema1.mix");
+
+            Assert.AreEqual(AnalysisOutcome.SecondaryIndexFoundOnDestination, tar.Outcome);
+        }
+
+        [Test]
+        public async Task Table_With_SystemVersioning()
+        {
+            var tar = await AnalyzeTable("schema1.temporal");
+
+            Assert.AreEqual(AnalysisOutcome.DestinationIsTemporalTable, tar.Outcome);
         }
 
         private async Task<AnalysisResult> AnalyzeTable(string tableForTest)
