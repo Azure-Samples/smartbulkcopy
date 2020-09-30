@@ -17,7 +17,7 @@ namespace SmartBulkCopy.Tests
         [SetUp]
         public void Setup()
         {
-            //Env.Load()
+            Env.Load();
 
             _logger = LogManager.GetCurrentClassLogger();
             
