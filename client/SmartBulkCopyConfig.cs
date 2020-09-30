@@ -14,23 +14,23 @@ using Microsoft.Extensions.DependencyInjection;
 namespace SmartBulkCopy
 {
     [Flags]
-    enum StopIf {
+    public enum StopIf {
         SecondaryIndex,
         TemporalTable
     }
-    enum SafeCheck {
+    public enum SafeCheck {
         None,
         Snapshot,
         ReadOnly
     }
 
-    enum LogicalPartitioningStrategy {
+    public enum LogicalPartitioningStrategy {
         Auto,
         Size,
         Count
     }
 
-    class SmartBulkCopyConfiguration 
+    public class SmartBulkCopyConfiguration 
     {
         public string SourceConnectionString;
         
@@ -111,6 +111,8 @@ namespace SmartBulkCopy
         public int RetryDelayIncrement = 10;
 
         private SmartBulkCopyConfiguration() {}
+
+        public static SmartBulkCopyConfiguration EmptyConfiguration => new SmartBulkCopyConfiguration();
 
         public static SmartBulkCopyConfiguration LoadFromConfigFile()
         {

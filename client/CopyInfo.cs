@@ -14,14 +14,14 @@ using System.Text.RegularExpressions;
 
 namespace SmartBulkCopy
 {
-    enum OrderHintType
+    public enum OrderHintType
     {
         None,
         ClusteredIndex,
         PartionKeyOnly
     }
 
-    abstract class CopyInfo
+    public abstract class CopyInfo
     {
         public TableInfo SourceTableInfo = new UnknownTableInfo();
         public TableInfo DestinationTableInfo = new UnknownTableInfo();
@@ -42,7 +42,7 @@ namespace SmartBulkCopy
         }
     }
 
-    class NoPartitionsCopyInfo : CopyInfo
+    public class NoPartitionsCopyInfo : CopyInfo
     {
         public NoPartitionsCopyInfo()
         {
@@ -55,7 +55,7 @@ namespace SmartBulkCopy
         }
     }
 
-    class PhysicalPartitionCopyInfo : CopyInfo
+    public class PhysicalPartitionCopyInfo : CopyInfo
     {
         public string PartitionFunction;
         public string PartitionColumn;
@@ -66,7 +66,7 @@ namespace SmartBulkCopy
         }
     }
 
-    class LogicalPartitionCopyInfo : CopyInfo
+    public class LogicalPartitionCopyInfo : CopyInfo
     {
         public int LogicalPartitionsCount;
         public override string GetPredicate()

@@ -1,0 +1,57 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+
+    <Authors>Davide Mauri</Authors>
+
+    <Product>Smart Bulk Copy</Product>
+
+    <Description>Efficently copy database tables from one SQL Server/Azure SQL database to another</Description>
+
+    <Copyright>Davide Mauri</Copyright>
+
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+    <PackageProjectUrl>https://github.com/yorek/smartbulkcopy</PackageProjectUrl>
+
+    <RepositoryUrl>https://github.com/yorek/smartbulkcopy</RepositoryUrl>
+
+    <RepositoryType>GIT</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="nlog.config" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="nlog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DotNetEnv" Version="1.4.0" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />
+    <PackageReference Include="nunit" Version="3.12.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\client\SmartBulkCopy.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update=".env">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

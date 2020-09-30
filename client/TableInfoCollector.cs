@@ -1,15 +1,8 @@
 using System;
-using System.IO;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Data;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Json;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Data.SqlClient;
 using Dapper;
 using NLog;

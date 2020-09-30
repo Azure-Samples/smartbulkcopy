@@ -1,0 +1,44 @@
+name: Deploy Database
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1.4.0
+      with:
+        dotnet-version: '3.1.100' 
+    - name: Restore dependencies 
+      working-directory: db-deploy
+      run: dotnet restore      
+    - name: Deploy
+      working-directory: db-deploy
+      env: 
+        ConnectionString: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}        
+      run: dotnet run
+  Test:
+    runs-on: ubuntu-latest
+    needs: [Deploy]
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1.4.0
+      with:
+        dotnet-version: '3.1.100' 
+    - name: Restore dependencies 
+      working-directory: db-test
+      run: dotnet restore      
+    - name: Run Tests
+      working-directory: db-test
+      env: 
+        ConnectionString: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}        
+      run: dotnet test
+      
+      
