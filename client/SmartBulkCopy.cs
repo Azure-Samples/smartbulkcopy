@@ -113,6 +113,7 @@ namespace SmartBulkCopy
 
             _logger.Info("Initializing copy process...");
 
+            _logger.Info("Bulding list of tables to be copied...");
             var internalTablesToCopy = GetTablesToCopy(tablesToCopy.Distinct());
             _tablesToCopy.AddRange(internalTablesToCopy);
 
