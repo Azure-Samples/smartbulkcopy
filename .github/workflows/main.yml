@@ -24,7 +24,7 @@ jobs:
       uses: zyborg/dotnet-tests-report@v1.0.0
       with:
         project_path: tests
-        report_name: smart_bulk_copy_tests
+        report_name: Test Results
         report_title: Smart Bulk Copy Tests
         github_token: ${{ secrets.GITHUB_TOKEN }}
       
