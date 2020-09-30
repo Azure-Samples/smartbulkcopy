@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	<Title>SmartBulkCopy</Title>
+    <Title>SmartBulkCopy</Title>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>    
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <Version>1.7.4</Version>
     <Authors>Davide Mauri</Authors>
     <Product>Smart Bulk Copy</Product>
     <PackageId>SmartBulkCopy</PackageId>
+    <Version>1.7.4</Version>
     <AssemblyVersion>1.7.4</AssemblyVersion>
     <FileVersion>1.7.4</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
@@ -17,9 +17,9 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/yorek/smartbulkcopy</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yorek/smartbulkcopy</RepositoryUrl>
-	<RepositoryType>Git</RepositoryType>
+    <RepositoryType>Git</RepositoryType>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.0.35" />
     <PackageReference Include="Microsoft.Data.Sqlclient" Version="2.0.1" />
@@ -34,10 +34,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="*.config.json">      
+    <Content Include="*.config.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="*.config">      
+    <Content Include="*.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
