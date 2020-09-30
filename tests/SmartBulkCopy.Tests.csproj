@@ -26,7 +26,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\client\SmartBulkCopy.csproj" />
+    <ProjectReference Include="..\client\SmartBulkCopy.csproj" />
   </ItemGroup>
 
   <ItemGroup>
