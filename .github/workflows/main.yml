@@ -1,27 +1,30 @@
 name: Run Unit Tests
 on:
   push:
-    branches: [ tests ]
+    branches: [ main, master, tests ]
   pull_request:
-    branches: [ tests ]
+    branches: [ main, master, tests ]
 jobs:
   Test:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v2
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1.4.0
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v1.7.2
       with:
-        dotnet-version: '3.1.100' 
+        dotnet-version: '3.1' 
     - name: Restore dependencies 
       working-directory: tests
       run: dotnet restore      
     - name: Run Tests
-      working-directory: tests
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
-      run: dotnet test
-      
+      uses: zyborg/dotnet-tests-report@v1.0.0
+      with:
+        project_path: tests
+        report_name: Test Results
+        report_title: Smart Bulk Copy Tests
+        github_token: ${{ secrets.GITHUB_TOKEN }}
       
