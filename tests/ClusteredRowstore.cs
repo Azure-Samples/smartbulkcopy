@@ -59,7 +59,7 @@ namespace SmartBulkCopy.Tests
             Assert.IsInstanceOf(typeof(NoPartitionsCopyInfo), tar.CopyInfo[0]);
             Assert.AreEqual(1, tar.CopyInfo.Count);
             Assert.AreEqual(OrderHintType.ClusteredIndex, tar.CopyInfo[0].OrderHintType);
-            Assert.AreEqual("INDEX_KEY", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
+            Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
             Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionByString());
         }
 
@@ -72,7 +72,7 @@ namespace SmartBulkCopy.Tests
             Assert.IsInstanceOf(typeof(PhysicalPartitionCopyInfo), tar.CopyInfo[0]);
             Assert.AreEqual(85, tar.CopyInfo.Count);
             Assert.AreEqual(OrderHintType.ClusteredIndex, tar.CopyInfo[0].OrderHintType);
-            Assert.AreEqual("INDEX_KEY,L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
+            Assert.AreEqual("L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
             Assert.AreEqual("L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionByString());
         }
     }
