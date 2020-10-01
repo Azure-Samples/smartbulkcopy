@@ -116,6 +116,7 @@ namespace SmartBulkCopy
             _logger.Info("Bulding list of tables to be copied...");
             var internalTablesToCopy = GetTablesToCopy(tablesToCopy.Distinct());
             _tablesToCopy.AddRange(internalTablesToCopy);
+            _logger.Info("...done");
 
             _logger.Info("Gathering tables info...");
             var ticSource = new TablesInfoCollector(_config.SourceConnectionString, internalTablesToCopy, _logger);
