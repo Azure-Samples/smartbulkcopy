@@ -36,6 +36,7 @@ namespace SmartBulkCopy
         public int OrdinalPosition;
         public bool IsDescending;        
         public int PartitionOrdinal;
+        public bool IsComputed;
     }
 
     public abstract class Index
@@ -44,7 +45,7 @@ namespace SmartBulkCopy
 
         public virtual bool IsPartitioned => Columns.Any(c => c.PartitionOrdinal != 0);
 
-        public virtual IOrderedEnumerable<IndexColumn> GetOrderBy() => this.Columns.OrderBy(c => c.OrdinalPosition);
+        public virtual IOrderedEnumerable<IndexColumn> GetOrderBy() => this.Columns.Where(c => c.IsComputed == false).OrderBy(c => c.OrdinalPosition);
         
         public virtual IOrderedEnumerable<IndexColumn> GetPartitionBy() => this.Columns.Where(c => c.PartitionOrdinal != 0).OrderBy(c => c.PartitionOrdinal);        
 
@@ -225,7 +226,8 @@ namespace SmartBulkCopy
                     c.name as ColumnName,
                     ic.key_ordinal as OrdinalPosition,
                     ic.is_descending_key as IsDescending,
-                    ic.partition_ordinal as PartitionOrdinal
+                    ic.partition_ordinal as PartitionOrdinal,
+                    c.is_computed as IsComputed
                 from
                     sys.indexes i
                 inner join
@@ -268,7 +270,8 @@ namespace SmartBulkCopy
                     c.name as ColumnName,
                     ic.key_ordinal as OrdinalPosition,
                     ic.is_descending_key as IsDescending,
-                    ic.partition_ordinal as PartitionOrdinal
+                    ic.partition_ordinal as PartitionOrdinal,
+                    c.is_computed as IsComputed
                 from
                     sys.indexes i
                 left join
@@ -312,7 +315,8 @@ namespace SmartBulkCopy
                         c.name as ColumnName,
                         ic.key_ordinal as OrdinalPosition,
                         ic.is_descending_key as IsDescending,
-                        ic.partition_ordinal as PartitionOrdinal
+                        ic.partition_ordinal as PartitionOrdinal,
+                        c.is_computed as IsComputed
                     from
                         sys.indexes i
                     left join
@@ -334,6 +338,7 @@ namespace SmartBulkCopy
                         null as OrdinalPosition,
                         null as IsDescending,
                         null as PartitionOrdinal
+                        null as IsComputed
                     from
                         sys.indexes i
                     where
