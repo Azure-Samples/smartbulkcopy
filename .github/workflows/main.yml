@@ -17,14 +17,10 @@ jobs:
     - name: Restore dependencies 
       working-directory: tests
       run: dotnet restore      
-    - name: Run Tests
+    - name: Run tests 
+      working-directory: tests
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
-      uses: zyborg/dotnet-tests-report@v1.0.0
-      with:
-        project_path: tests
-        report_name: Test Results
-        report_title: Smart Bulk Copy Tests
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+      run: dotnet test     
       
