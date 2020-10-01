@@ -93,17 +93,18 @@ namespace SmartBulkCopy
                 // Check if dealing with a Temporal Table
                 if (destinationTable.Type != TableType.Regular)
                 {
-                    _logger.Info($"{t} destination table is {destinationTable.Type}...");
+                    _logger.Info($"{t} destination table is a Temporal Table: {destinationTable.Type}...");
                     if (_config.StopIf.HasFlag(StopIf.TemporalTable))
                     {
-                        _logger.Error($"Stopping a destination table {t} is a Temporal Table. Disable Temporal Tables on the destination.");
+                        _logger.Error($"Stopping. Disable Temporal Tables on the destination.");
                         result.Outcome = AnalysisOutcome.DestinationIsTemporalTable;
                         return result;
                     }
                     else
                     {
-                        _logger.Warn($"WARNING! Destination table {t} is a Temporal Table. System Versioning will be automatically disabled and re-enabled to allow bulk load.");
-                        _logger.Debug($"Temporal Table {t} uses {destinationTable.HistoryInfo.HistoryTable} for History. Period is {destinationTable.HistoryInfo.PeriodStartColumn} to {destinationTable.HistoryInfo.PeriodEndColumn}. Retention is {destinationTable.HistoryInfo.RetentionPeriod}");
+                        _logger.Warn($"WARNING! System Versioning will be automatically disabled and re-enabled to allow bulk load.");
+                        if (destinationTable.Type == TableType.SystemVersionedTemporal)
+                            _logger.Debug($"Temporal Table {t} uses {destinationTable.HistoryInfo.HistoryTable} for History. Period is {destinationTable.HistoryInfo.PeriodStartColumn} to {destinationTable.HistoryInfo.PeriodEndColumn}. Retention is {destinationTable.HistoryInfo.RetentionPeriod}");
                     }
                 }
 
