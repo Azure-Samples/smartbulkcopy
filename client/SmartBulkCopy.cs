@@ -127,6 +127,7 @@ namespace SmartBulkCopy
 
             var tiSource = await ti1;
             var tiDestination = await ti2;
+            _logger.Info("...done");
 
             _logger.Info("Analyzing tables...");
             var ta = new TableAnalyzer(_config, _logger);
@@ -136,6 +137,7 @@ namespace SmartBulkCopy
                 return (int)(tar.Outcome);
             }
             var copyInfo = tar.CopyInfo;
+            _logger.Info("...done");
 
             _logger.Info("Enqueueing work...");
             copyInfo.ForEach(ci => _queue.Enqueue(ci));
