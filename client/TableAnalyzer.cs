@@ -132,7 +132,7 @@ namespace SmartBulkCopy
                 {
                     _logger.Info($"{t} -> Source and destination tables have compatible partitioning logic. Parallel load available.");
                     _logger.Info($"{t} -> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
-                    if (sourceTable.PrimaryIndex.GetOrderBy() != string.Empty) _logger.Info($"{t} |> Order By: {sourceTable.PrimaryIndex.GetOrderBy()}");
+                    if (sourceTable.PrimaryIndex.GetOrderBy() != string.Empty) _logger.Info($"{t} -> Order By: {sourceTable.PrimaryIndex.GetOrderBy()}");
                     usePartitioning = true;
                 }
                 else if (destinationTable.PrimaryIndex is ColumnStoreClusteredIndex)
