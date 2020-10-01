@@ -337,7 +337,7 @@ namespace SmartBulkCopy
                         null as ColumnName,
                         null as OrdinalPosition,
                         null as IsDescending,
-                        null as PartitionOrdinal
+                        null as PartitionOrdinal,
                         null as IsComputed
                     from
                         sys.indexes i
