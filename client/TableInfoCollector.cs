@@ -19,7 +19,7 @@ namespace SmartBulkCopy
     public enum TableType {
         Regular = 0,
         SystemVersionedTemporal = 2,
-        History = 1
+        HistoryTable = 1
     }
     public class TableSize
     {
@@ -481,6 +481,8 @@ namespace SmartBulkCopy
                         sys.[foreign_keys]
                     where
                         [parent_object_id] = object_id(@tableName) 
+                    or 
+                        [referenced_object_id] = object_id(@tableName) 
                     ";
 
             LogDebug($"Executing:\n{sql}");
