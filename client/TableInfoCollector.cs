@@ -42,7 +42,7 @@ namespace SmartBulkCopy
     {
         public List<IndexColumn> Columns = new List<IndexColumn>();
 
-        public virtual string GetOrderBy(bool excludePartitionColumn = true){
+        public virtual string GetOrderBy(){
             return string.Empty;
         }
         public virtual string GetPartitionBy(){
@@ -63,11 +63,9 @@ namespace SmartBulkCopy
             return string.Empty;
         }
 
-        public override string GetOrderBy(bool excludePartitionColumn = true)
-        {                       
-            if (excludePartitionColumn == true) return string.Empty;
-
-            return GetPartitionBy();
+        public override string GetOrderBy()
+        {      
+            return string.Empty;
         }
 
         public override bool IsPartitioned {
@@ -79,13 +77,10 @@ namespace SmartBulkCopy
 
     public class RowStoreClusteredIndex: Index
     {      
-        public override string GetOrderBy(bool excludePartitionColumn = true)
+        public override string GetOrderBy()
         {           
-            int op = -1;
-            if (excludePartitionColumn == true) op = 1;
-
             var orderList = from c in Columns 
-                        where c.PartitionOrdinal != op
+                        where c.PartitionOrdinal != 1
                         orderby c.OrdinalPosition
                         select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
     
@@ -118,11 +113,9 @@ namespace SmartBulkCopy
             return string.Empty;
         }
 
-        public override string GetOrderBy(bool excludePartitionColumn = true)
+        public override string GetOrderBy()
         {                       
-            if (excludePartitionColumn == true) return string.Empty;
-
-            return GetPartitionBy();
+            return string.Empty;
         }
 
         public override bool IsPartitioned {
