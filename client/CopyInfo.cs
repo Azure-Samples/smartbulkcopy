@@ -38,7 +38,7 @@ namespace SmartBulkCopy
         }
         public string GetOrderBy()
         {           
-            return SourceTableInfo.PrimaryIndex.GetOrderBy();
+            return SourceTableInfo.PrimaryIndex.GetOrderByString();
         }
     }
 

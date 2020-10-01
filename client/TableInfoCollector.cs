@@ -42,86 +42,48 @@ namespace SmartBulkCopy
     {
         public List<IndexColumn> Columns = new List<IndexColumn>();
 
-        public virtual string GetOrderBy(){
-            return string.Empty;
-        }
-        public virtual string GetPartitionBy(){
-            return string.Empty;
+        public virtual bool IsPartitioned => Columns.Any(c => c.PartitionOrdinal != 0);
+
+        public virtual IOrderedEnumerable<IndexColumn> GetOrderBy() => this.Columns.OrderBy(c => c.OrdinalPosition);
+        
+        public virtual IOrderedEnumerable<IndexColumn> GetPartitionBy() => this.Columns.Where(c => c.PartitionOrdinal != 0).OrderBy(c => c.PartitionOrdinal);        
+
+        public virtual string GetOrderByString() {
+            var orderList = 
+                from c in this.GetOrderBy()
+                select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
+    
+            return string.Join(",", orderList);
         }
 
-        public virtual bool IsPartitioned { get; }
+        public virtual string GetPartitionByString(){
+            var orderList = 
+                from c in this.GetPartitionBy()
+                select c.ColumnName;      
+    
+            return string.Join(",", orderList);
+        }
     }
 
     public class UnknownIndex: Index 
     { }
 
     public class Heap: Index
-    { 
-        public override string GetPartitionBy()
-        {
-            if (this.Columns.Count() == 1) return this.Columns.First().ColumnName;
-            return string.Empty;
-        }
-
-        public override string GetOrderBy()
+    {        
+        public override string GetOrderByString()
         {      
             return string.Empty;
-        }
-
-        public override bool IsPartitioned {
-            get {
-                return this.Columns.Count() == 1;
-            }
         }
     }
 
     public class RowStoreClusteredIndex: Index
-    {      
-        public override string GetOrderBy()
-        {           
-            var orderList = from c in Columns 
-                        where c.PartitionOrdinal != 1
-                        orderby c.OrdinalPosition
-                        select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
-    
-            return string.Join(",", orderList);
-        }
-
-        public override string GetPartitionBy()
-        {
-            var orderList = from c in Columns 
-                        where c.PartitionOrdinal != 0
-                        orderby c.PartitionOrdinal
-                        select c.ColumnName;      
-    
-            return string.Join(",", orderList);
-        }
-
-        public override bool IsPartitioned {
-            get {
-                return Columns.Any(c => c.PartitionOrdinal != 0);
-            }
-        }
-
-    }
+    { }
 
     public class ColumnStoreClusteredIndex: Index
     { 
-        public override string GetPartitionBy()
-        {
-            if (this.Columns.Count() == 1) return this.Columns.First().ColumnName;
-            return string.Empty;
-        }
-
-        public override string GetOrderBy()
+        public override string GetOrderByString()
         {                       
             return string.Empty;
-        }
-
-        public override bool IsPartitioned {
-            get {
-                return this.Columns.Count() == 1;
-            }
         }
     }
 
@@ -288,11 +250,11 @@ namespace SmartBulkCopy
 
             if (rci.Columns.Count > 0)
             {
-                LogDebug($"Detected Clustered RowStore Index: {rci.GetOrderBy()}");
+                LogDebug($"Detected Clustered RowStore Index: {rci.GetOrderByString()}");
                 _tableInfo.PrimaryIndex = rci;
 
-                if (rci.Columns.Any(c => c.PartitionOrdinal != 0)) {
-                    LogDebug($"Clustered RowStore Index is Partitioned on: {rci.GetPartitionBy()}");                    
+                if (rci.IsPartitioned) {
+                    LogDebug($"Clustered RowStore Index is Partitioned on: {rci.GetPartitionByString()}");                    
                 }
             }
         }
@@ -331,7 +293,7 @@ namespace SmartBulkCopy
                 if (columns.First().ColumnName != null)
                 {
                     h.Columns.Add(columns.First());
-                    LogDebug($"Heap is Partitioned on: {h.GetPartitionBy()}");                                        
+                    LogDebug($"Heap is Partitioned on: {h.GetPartitionByString()}");                                        
                 }
 
                 _tableInfo.PrimaryIndex = h;
@@ -393,7 +355,7 @@ namespace SmartBulkCopy
                 if (columns[0].ColumnName != null)
                 {                    
                     h.Columns.Add(columns[0]);
-                    LogDebug($"Clustered ColumnStore is Partitioned on: {h.GetPartitionBy()}");                                        
+                    LogDebug($"Clustered ColumnStore is Partitioned on: {h.GetPartitionByString()}");                                        
                 }
 
                 _tableInfo.PrimaryIndex = h;

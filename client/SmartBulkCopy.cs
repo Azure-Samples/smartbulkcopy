@@ -402,7 +402,7 @@ namespace SmartBulkCopy
                                 if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
                                 {
                                     _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");                                    
-                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.OrderBy(c => c.OrdinalPosition);
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.GetOrderBy();
                                     foreach (var ii in oc)
                                     {
                                         bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
@@ -411,7 +411,7 @@ namespace SmartBulkCopy
                                 if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
                                 {
                                     _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
-                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.GetPartitionBy();
                                     foreach (var ii in oc)
                                     {
                                         bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
