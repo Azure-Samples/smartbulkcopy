@@ -128,6 +128,7 @@ namespace SmartBulkCopy
 
             var tiSource = await ti1;
             var tiDestination = await ti2;
+            _logger.Info("...done");
 
             _logger.Info("Analyzing tables...");
             var ta = new TableAnalyzer(_config, _logger);
@@ -137,6 +138,7 @@ namespace SmartBulkCopy
                 return (int)(tar.Outcome);
             }
             var copyInfo = tar.CopyInfo;
+            _logger.Info("...done");
 
             _logger.Info("Enqueueing work...");
             copyInfo.ForEach(ci => _queue.Enqueue(ci));
@@ -403,7 +405,7 @@ namespace SmartBulkCopy
                                 if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
                                 {
                                     _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");                                    
-                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.OrderBy(c => c.OrdinalPosition);
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.GetOrderBy();
                                     foreach (var ii in oc)
                                     {
                                         bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);
@@ -412,7 +414,7 @@ namespace SmartBulkCopy
                                 if (copyInfo.OrderHintType == OrderHintType.PartionKeyOnly)
                                 {
                                     _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
-                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.Columns.Where(c => c.PartitionOrdinal != 0);
+                                    var oc = copyInfo.SourceTableInfo.PrimaryIndex.GetPartitionBy();
                                     foreach (var ii in oc)
                                     {
                                         bulkCopy.ColumnOrderHints.Add(ii.ColumnName, ii.IsDescending ? SortOrder.Descending : SortOrder.Ascending);

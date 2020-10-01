@@ -93,17 +93,18 @@ namespace SmartBulkCopy
                 // Check if dealing with a Temporal Table
                 if (destinationTable.Type != TableType.Regular)
                 {
-                    _logger.Info($"{t} destination table is {destinationTable.Type}...");
+                    _logger.Info($"{t} destination table is a Temporal Table: {destinationTable.Type}...");
                     if (_config.StopIf.HasFlag(StopIf.TemporalTable))
                     {
-                        _logger.Error($"Stopping a destination table {t} is a Temporal Table. Disable Temporal Tables on the destination.");
+                        _logger.Error($"Stopping. Disable Temporal Tables on the destination.");
                         result.Outcome = AnalysisOutcome.DestinationIsTemporalTable;
                         return result;
                     }
                     else
                     {
-                        _logger.Warn($"WARNING! Destination table {t} is a Temporal Table. System Versioning will be automatically disabled and re-enabled to allow bulk load.");
-                        _logger.Debug($"Temporal Table {t} uses {destinationTable.HistoryInfo.HistoryTable} for History. Period is {destinationTable.HistoryInfo.PeriodStartColumn} to {destinationTable.HistoryInfo.PeriodEndColumn}. Retention is {destinationTable.HistoryInfo.RetentionPeriod}");
+                        _logger.Warn($"WARNING! System Versioning will be automatically disabled and re-enabled to allow bulk load.");
+                        if (destinationTable.Type == TableType.SystemVersionedTemporal)
+                            _logger.Debug($"Temporal Table {t} uses {destinationTable.HistoryInfo.HistoryTable} for History. Period is {destinationTable.HistoryInfo.PeriodStartColumn} to {destinationTable.HistoryInfo.PeriodEndColumn}. Retention is {destinationTable.HistoryInfo.RetentionPeriod}");
                     }
                 }
 
@@ -111,7 +112,7 @@ namespace SmartBulkCopy
                 if (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex is Heap)
                 {
                     _logger.Info($"{t} -> Source is partitioned and destination is heap. Parallel load available.");
-                    _logger.Info($"{t} -> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
+                    _logger.Info($"{t} -> Partition By: {sourceTable.PrimaryIndex.GetPartitionByString()}");
                     usePartitioning = true;
                 }
                 else if (sourceTable.PrimaryIndex is Heap && destinationTable.PrimaryIndex is Heap)
@@ -126,13 +127,13 @@ namespace SmartBulkCopy
                 }
                 else if (
                       (sourceTable.PrimaryIndex.IsPartitioned && destinationTable.PrimaryIndex.IsPartitioned) &&
-                      (sourceTable.PrimaryIndex.GetPartitionBy() == destinationTable.PrimaryIndex.GetPartitionBy()) &&
-                      (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())
+                      (sourceTable.PrimaryIndex.GetPartitionByString() == destinationTable.PrimaryIndex.GetPartitionByString()) &&
+                      (sourceTable.PrimaryIndex.GetOrderByString() == destinationTable.PrimaryIndex.GetOrderByString())
                   )
                 {
                     _logger.Info($"{t} -> Source and destination tables have compatible partitioning logic. Parallel load available.");
-                    _logger.Info($"{t} -> Partition By: {sourceTable.PrimaryIndex.GetPartitionBy()}");
-                    if (sourceTable.PrimaryIndex.GetOrderBy() != string.Empty) _logger.Info($"{t} |> Order By: {sourceTable.PrimaryIndex.GetOrderBy()}");
+                    _logger.Info($"{t} -> Partition By: {sourceTable.PrimaryIndex.GetPartitionByString()}");
+                    if (sourceTable.PrimaryIndex.GetOrderByString() != string.Empty) _logger.Info($"{t} -> Order By: {sourceTable.PrimaryIndex.GetOrderByString()}");
                     usePartitioning = true;
                 }
                 else if (destinationTable.PrimaryIndex is ColumnStoreClusteredIndex)
@@ -149,7 +150,7 @@ namespace SmartBulkCopy
                 // Check if ORDER hint can be used to avoid sorting data on the destination
                 if (sourceTable.PrimaryIndex is RowStoreClusteredIndex && destinationTable.PrimaryIndex is RowStoreClusteredIndex)
                 {
-                    if (sourceTable.PrimaryIndex.GetOrderBy() == destinationTable.PrimaryIndex.GetOrderBy())
+                    if (sourceTable.PrimaryIndex.GetOrderByString() == destinationTable.PrimaryIndex.GetOrderByString())
                     {
                         _logger.Info($"{t} -> Source and destination clustered rowstore index have same ordering. Enabling ORDER hint.");
                         orderHintType = OrderHintType.ClusteredIndex;
