@@ -217,7 +217,7 @@ From version 1.7 if you have a table with a clustered index on it, Smart Bulk Co
 - *Table with CLUSTERED COLUMNSTORE*: Parallel Bulk Load using Logical Partitions
 
 **Partitioned Tables**
-- *HEAP Table*: Parallel Bulk Load using Logical Partitions
+- *HEAP Table*: Parallel Bulk Load using Physical Partitions
 - *Table with CLUSTERED ROWSTORE*: Parallel Bulk Load using Physical Partitions, Ordered by Index Key Columns
 - *Table with CLUSTERED COLUMNSTORE*: Parallel Bulk Load using Physical Partitions
 
