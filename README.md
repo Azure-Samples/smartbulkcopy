@@ -61,6 +61,7 @@ Or that the database is set to be in Read-Only mode:
 Then just run:
 
 ```bash
+cd client
 dotnet run
 ```
 
