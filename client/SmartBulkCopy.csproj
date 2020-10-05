@@ -22,17 +22,15 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.0.35" />
-    <PackageReference Include="Microsoft.Data.Sqlclient" Version="2.0.1" />
+    <PackageReference Include="dotMorten.Microsoft.SqlServer.Types" Version="1.2.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="2.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
-    <PackageReference Include="Microsoft.SqlServer.Types" Version="14.0.1016.290">
-      <NoWarn>NU1701</NoWarn>
-    </PackageReference>
     <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />    
-  </ItemGroup>
+  </ItemGroup> 
 
   <ItemGroup>
     <Content Include="*.config.json">
@@ -42,5 +40,4 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-
 </Project>
