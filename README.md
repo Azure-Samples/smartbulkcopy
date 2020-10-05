@@ -252,7 +252,7 @@ If you prefer to handle this process manually, of if Smart Bulk Copy was stopped
 
 ### I would change the code here and there, can I?
 
-Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. Code can be largely improved even, if I tried to apply some of the best practices, but when I had to make some choice I chose simplicity over everything else.
+Sure, feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. Code can be largely improved, even if I tried to apply some of the best practices, but when I had to make some choices I went for simplicity over everything else.
 
 ## Tests
 
