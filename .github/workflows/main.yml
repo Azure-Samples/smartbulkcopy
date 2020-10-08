@@ -1,9 +1,9 @@
 name: Run Unit Tests
 on:
   push:
-    branches: [ main, master, tests ]
+    branches: [ main, master, sql-datatype-support]
   pull_request:
-    branches: [ main, master, tests ]
+    branches: [ main, master, sql-datatype-support]
 jobs:
   Test:
     runs-on: ubuntu-latest
