@@ -50,8 +50,8 @@ namespace SmartBulkCopy
             // SqlServer.Types assembly redirection
             if (assemblyName.FullName == "Microsoft.SqlServer.Types, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91")
             {
-                var a = typeof(SqlGeography).Assembly;
-                _logger.Debug($"Rebinding {assemblyName.FullName} to {a.FullName}");
+                var a = typeof(SqlHierarchyId).Assembly;
+                _logger.Info($"Rebinding {assemblyName.FullName} to {a.FullName}");
                 return a;
             }
 
@@ -330,8 +330,6 @@ namespace SmartBulkCopy
         {
             CopyInfo copyInfo;
             _logger.Info($"Task {taskId}: Started...");
-
-            //AssemblyLoadContext.Default.Resolving += OnAssemblyResolve;
 
             Interlocked.Add(ref _runningTasks, 1);
 

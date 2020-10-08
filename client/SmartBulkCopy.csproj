@@ -18,6 +18,8 @@
     <PackageProjectUrl>https://github.com/yorek/smartbulkcopy</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yorek/smartbulkcopy</RepositoryUrl>
     <RepositoryType>Git</RepositoryType>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,7 +30,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />    
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />
   </ItemGroup> 
 
   <ItemGroup>
@@ -38,11 +40,5 @@
     <Content Include="*.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-  </ItemGroup> 
-
-  <ItemGroup>
-    <Reference Include="Microsoft.SqlServer.Types">
-      <HintPath>..\libs\netstandard2.0\Microsoft.SqlServer.Types.dll</HintPath>
-    </Reference>
-  </ItemGroup>
+  </ItemGroup>  
 </Project>
