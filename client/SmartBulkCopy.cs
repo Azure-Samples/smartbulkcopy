@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Runtime.Loader;
 using System.Reflection;
-using Microsoft.SqlServer.Types;
 using Microsoft.Data.SqlClient;
+using Microsoft.SqlServer.Types;
 using Dapper;
 using NLog;
 
@@ -47,13 +47,14 @@ namespace SmartBulkCopy
 
         private Assembly OnAssemblyResolve(AssemblyLoadContext assemblyLoadContext, AssemblyName assemblyName)
         {
-             // SqlServer.Types assembly redirection
+            // SqlServer.Types assembly redirection
             if (assemblyName.FullName == "Microsoft.SqlServer.Types, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91")
             {
-                var a = typeof(Microsoft.SqlServer.Types.SqlHierarchyId).Assembly;
-                _logger.Info("Rebinding to " + a.FullName);
+                var a = typeof(SqlGeography).Assembly;
+                _logger.Debug($"Rebinding {assemblyName.FullName} to {a.FullName}");
                 return a;
             }
+
             return null;
         }
 
@@ -330,7 +331,7 @@ namespace SmartBulkCopy
             CopyInfo copyInfo;
             _logger.Info($"Task {taskId}: Started...");
 
-            AssemblyLoadContext.Default.Resolving += OnAssemblyResolve;
+            //AssemblyLoadContext.Default.Resolving += OnAssemblyResolve;
 
             Interlocked.Add(ref _runningTasks, 1);
 
@@ -658,7 +659,7 @@ namespace SmartBulkCopy
                     if (_queue.Count == 0 && runningTasks == 0) break;
 
                     var log_flush = Convert.ToDecimal(conn.ExecuteScalar(query) ?? 0);
-                    var copyingTables = String.Join(',', _activeTasks.Values.Distinct().ToArray());
+                    var copyingTables = String.Join(",", _activeTasks.Values.Distinct().ToArray());
                     if (copyingTables == "") copyingTables = "None";
                     _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Queue Size {_queue.Count}, Tables being copied: {copyingTables}.");
 
@@ -789,12 +790,12 @@ namespace SmartBulkCopy
                 else
                 {
                     var parts = t.Split('.');
-                    var qt = string.Join('.', parts.Select(p =>
+                    var qt = string.Join(".", parts.Select(p =>
                     {
                         string n = "";
-                        if (!p.StartsWith('[')) n += "[";
+                        if (!p.StartsWith("[")) n += "[";
                         n += p;
-                        if (!p.EndsWith(']')) n += "]";
+                        if (!p.EndsWith("]")) n += "]";
                         return n;
                     }).ToArray());
 

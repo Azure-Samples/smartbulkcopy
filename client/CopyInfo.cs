@@ -1,16 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Data;
-using System.Data.SqlClient;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Text;
-using Dapper;
-using NLog;
-using System.Text.RegularExpressions;
 
 namespace SmartBulkCopy
 {
