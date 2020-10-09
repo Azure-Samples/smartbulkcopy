@@ -255,7 +255,7 @@ If you prefer to handle this process manually, or if Smart Bulk Copy was stopped
 
 In Azure SQL / SQL Server you can use `HiearchyId`, `Geography` and `Geometry` data types. Those data types are a bit special since they are implemented as SQLCLR data types, residing in the Microsoft.SqlServer.Types assembly. Those types are 100% compatible with the System.Data.SqlClient library, [which is being replaced by](https://devblogs.microsoft.com/dotnet/introducing-the-new-microsoftdatasqlclient/) the new Microsoft.Data.SqlClient, that supports also .NET Core.
 
-Smart Bulk Copy has been lately updated to use the latest version of Microsoft.Data.SqlClient - 2.0.1 at time of writing - which add support for the ORDER hint in Bulk Load, but that unfortunately completely [brake support to Microsoft.SqlServer.Types](https://github.com/dotnet/SqlClient/issues/30).
+Smart Bulk Copy has been lately updated to use the latest version of Microsoft.Data.SqlClient - 2.0.1 at time of writing - which add support for the ORDER hint in Bulk Load, but that unfortunately completely [broke support to Microsoft.SqlServer.Types](https://github.com/dotnet/SqlClient/issues/30).
 
 Luckily, for doing a Bulk Load, the only thing really needed to move data stored in those columns around is the ability to Serialize and De-Serialize binary data, via the [IBinarySerialize](https://docs.microsoft.com/en-us/dotnet/api/microsoft.sqlserver.server.ibinaryserialize) interface which is already available in [Microsoft.Data.SqlClient.Server](https://github.com/dotnet/SqlClient/blob/0d4c9bb3d55e096a0f3196565b2c786a9125aaf8/src/Microsoft.Data.SqlClient/netcore/ref/Microsoft.Data.SqlClient.cs#L1500).
 
