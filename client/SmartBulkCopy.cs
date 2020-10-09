@@ -47,11 +47,12 @@ namespace SmartBulkCopy
 
         private Assembly OnAssemblyResolve(AssemblyLoadContext assemblyLoadContext, AssemblyName assemblyName)
         {
-            // SqlServer.Types assembly redirection
-            if (assemblyName.FullName == "Microsoft.SqlServer.Types, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91")
+            // SqlServer.Types assembly redirection            
+            if (assemblyName.FullName.Contains("Microsoft.SqlServer.Types") && assemblyName.FullName.Contains("PublicKeyToken=89845dcd8080cc91"))
             {
                 var a = typeof(SqlHierarchyId).Assembly;
-                _logger.Info($"Rebinding {assemblyName.FullName} to {a.FullName}");
+                _logger.Debug($"Rebinding {assemblyName.FullName} to {a.FullName}");
+                _logger.Warn($"Detected usage of SqlServer Data Types. Using custom assembly '{a.FullName}' to allow Bulk Load to work.");
                 return a;
             }
 

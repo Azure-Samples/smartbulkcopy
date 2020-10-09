@@ -8,9 +8,9 @@
     <Authors>Davide Mauri</Authors>
     <Product>Smart Bulk Copy</Product>
     <PackageId>SmartBulkCopy</PackageId>
-    <Version>1.8.3</Version>
-    <AssemblyVersion>1.8.3</AssemblyVersion>
-    <FileVersion>1.8.3</FileVersion>
+    <Version>1.9.1</Version>
+    <AssemblyVersion>1.9.1</AssemblyVersion>
+    <FileVersion>1.9.1</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
     <Description>Efficently copy database tables from one SQL Server/Azure SQL database to another</Description>
     <Copyright>Davide Mauri</Copyright>
@@ -18,8 +18,6 @@
     <PackageProjectUrl>https://github.com/yorek/smartbulkcopy</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yorek/smartbulkcopy</RepositoryUrl>
     <RepositoryType>Git</RepositoryType>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,4 +39,10 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>  
+
+  <ItemGroup>
+    <Reference Include="Microsoft.SqlServer.Types">
+      <HintPath>..\hack\bin\Debug\netstandard2.0\Microsoft.SqlServer.Types.dll</HintPath>
+    </Reference>
+  </ItemGroup> 
 </Project>
