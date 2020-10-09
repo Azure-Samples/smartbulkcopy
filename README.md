@@ -250,6 +250,10 @@ If you prefer to handle this process manually, of if Smart Bulk Copy was stopped
 
 [Alter non-temporal table to be a system-versioned temporal table](https://docs.microsoft.com/en-us/sql/relational-databases/tables/creating-a-system-versioned-temporal-table?view=sql-server-ver15#alter-non-temporal-table-to-be-a-system-versioned-temporal-table)
 
+### Azure SQL / SQL Server Special Data Types support
+
+In Azure SQL / SQL Server you can use HiearchyId, Geography and Geometry....TDB
+
 ### I would change the code here and there, can I?
 
 Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. Code can be largely improved even, if I tried to apply some of the best practices, but when I had to make some choice I chose simplicity over everything else.

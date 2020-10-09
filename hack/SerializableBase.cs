@@ -1,14 +1,11 @@
 using Microsoft.Data.SqlClient.Server;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Data.SqlTypes;
 using System.IO;
-using System.Linq;
 
 namespace Microsoft.SqlServer.Types
 {
-    public class SerializableBase : IBinarySerialize, INullable, IComparable
+    public class SerializableBase : IBinarySerialize, INullable
     {
         private MemoryStream _ms;
         private bool _null;
@@ -19,22 +16,6 @@ namespace Microsoft.SqlServer.Types
         {
             this._null = true;
             this._ms = new MemoryStream();
-        }
-
-        public int CompareTo(object obj) => this.CompareTo((SqlHierarchyId)obj);
-
-        public int CompareTo(SqlHierarchyId hid)
-        {
-            if (IsNull)
-            {
-                if (!hid.IsNull)
-                    return -1;
-                return 0;
-            }
-            if (hid.IsNull)
-                return 1;
-
-            return 0;
         }
 
         [SqlMethod(IsDeterministic = true, IsPrecise = true)]
