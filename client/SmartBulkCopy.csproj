@@ -30,6 +30,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
     <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />
   </ItemGroup> 
+  <ItemGroup>
+    <ProjectReference Include="..\hack\Microsoft.SqlServer.Types.Hack.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="*.config.json">
