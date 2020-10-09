@@ -4,7 +4,7 @@
 
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
-It can be used to efficiently and quickly move data from two instances of SQL Server running in two different cloud providers or to move from on-premises to the cloud.
+It can be also used to efficiently and quickly move data from two instances of SQL Server running in two different cloud providers or to move from on-premises to the cloud.
 
 Smart Bulk Copy is also available as a [Docker Image](https://hub.docker.com/repository/docker/yorek/smartbulkcopy).
 
@@ -20,7 +20,7 @@ When a source table is partitioned, it uses the physical partitions to execute s
 SELECT * FROM <sourceTable> WHERE $partition.<partitionFunction>(<partitionColumn>) = <n>
 ```
 
-Queries are executed in parallel to load, always in parallel, data into the destination table. `TABLOCK` options is used - when possible - on the table to allow fully parallelizable bulk inserts. `ORDER` option is also used when possible to minimize the sort operations on the destination table, when insert into a table with an existing clustered rowstore index.
+Queries are executed in parallel to load, always in parallel, data into the destination table. `TABLOCK` options is used - when possible and needed - on the table to allow fully parallelizable bulk inserts. `ORDER` option is also used when possible to minimize the sort operations on the destination table, for example when inserting into a table with an existing clustered rowstore index.
 
 ### Non-Partitioned Source Tables
 
@@ -28,7 +28,7 @@ If a source table is not partitioned, then Smart Bulk Copy will use the `%%PhysL
 
 [Where is a record really located?](https://techcommunity.microsoft.com/t5/Premier-Field-Engineering/Where-is-a-record-really-located/ba-p/370972)
 
-If the configuration file specifies a value greater than 1 for `logical-partitions` the following query will be used to read the logical partition in parallel:
+If the configuration file specifies a value greater than 1 for `logical-partitions` the following query will be used to read the logical partitions in parallel:
 
 ```sql
 SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-partitions-count> = <n>
@@ -44,13 +44,13 @@ SELECT * FROM <sourceTable> WHERE ABS(CAST(%%PhysLoc%% AS BIGINT)) % <logical-pa
 
 From version 1.7 Smart Bulk Copy will smartly copy tables with no clustered index (heaps), and tables with clustered index (rowstore or columnstore it doesn't matter.)
 
-Couple of notes for the Columnstore:
+Couple of notes for tables with Clustered Columnstore index:
 - Smart Bulk Copy will always use a Batch Size of a minimum of 102400 rows, no matter what specified in the configuration as per [best practices](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups). If you have columnstore it is generally recommended to increase the value to 1048576 in order to maximize compression and [reduce number of rowgroups](https://docs.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-data-loading-guidance?view=sql-server-ver15#plan-bulk-load-sizes-to-minimize-delta-rowgroups).
 - When copying a Columnstore table, you may see very low values (<20Mb/Sec) for the "Log Flush Speed". *This is correct and expected* as Columnstore is extremely compressed and thus the log generation rate (which is what is measured by the Log Flush Speed) is much lower than with Rowstore tables.
 
 ## How to use it
 
-Download or clone the repository, make sure you have .NET Core 3.1 installed and then create a `smartbulkcopy.config` file from the provided `smartbulkcopy.config.template`. If you want to start right away just provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
+Download or clone the repository, make sure you have .NET Core 3.1 installed and then create a `smartbulkcopy.config` file from the provided `smartbulkcopy.config.template`. If you want to start right away just, provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
 
 [Create a Database Snapshot](https://docs.microsoft.com/en-us/sql/relational-databases/databases/create-a-database-snapshot-transact-sql?view=sql-server-2017)
 
@@ -69,7 +69,7 @@ and Smart Bulk Copy will start to copy data from source database to destination 
 
 ## Configuration Notes
 
-Here's how you can change Smart Bulk Copy configuration to better suits your needs. Everything is conviniently found in `smartbulkcopy.config` file. Aside from the obvious source and destination connection strings, here's the configuration options you can use:
+Here's how you can change Smart Bulk Copy configuration to better suits your needs. Everything is conveniently found in `smartbulkcopy.config` file. Aside from the obvious source and destination connection strings, here's the configuration options you can use:
 
 ### Tables to copy
 
@@ -166,6 +166,7 @@ There are a couple of exceptions to what just described:
 
 Tests have been ran using the `LINEITEM` table of TPC-H 10GB test database. Uncompressed table size is around 8.8 GB with 59,986,052 rows. Source database was a SQL Server 2017 VM running on Azure and the target was Azure SQL Hyperscale Gen8 8vCores. Smart Bulk Copy was running on the same Virtual Machine where also source database was hosted. Both the VM and the Azure SQL database were in the same region. 
 Used configuration settings:
+
 ```json
 "tasks": 7,
 "logical-partitions": "auto",
@@ -198,18 +199,18 @@ Smart Bulk Copy only copies data between existing database and existing objects.
 
 ### How can I be sure I'm moving data as fast as possible?
 
-Remember that Azure SQL cannot go faster that ~100 MB/sec due to log flush speed governance. The best practices to quickly load data into a table can be found here:
+Remember that Azure SQL cannot go faster that ~100 MB/sec due to log flush speed governance. Best practices on how to quickly load data into a table can be found here:
 
 - [Prerequisites for Minimal Logging in Bulk Import](https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import?view=sql-server-2017)
 - Old but still applicable: [The Data Loading Performance Guide](https://docs.microsoft.com/en-us/previous-versions/sql/sql-server-2008/dd425070(v=sql.100)?redirectedfrom=MSDN)
 
-In summary, before starting the copy process, make sure that, for the table that will be copied:
+In summary, before starting the copy process, make sure that, for the tables that will be copied:
 
 - Tables must be empty
 - Drop any Foreign Key Constraint 
 - Drop any Secondary (Non-Clustered) Index 
 
-From version 1.7 if you have a table with a clustered index on it, Smart Bulk Copy will try to copy it as fast as possible, using partitioning if possible and ORDER hint to avoid unnecessary sort. Here's how Smart Bulk Copy will try to load tables based on indexes and partitioning:
+From version 1.7 if you have a table with a clustered index on it, Smart Bulk Copy will try to copy it as fast as possible, using partitioning if available and ORDER hint to avoid unnecessary sort. Here's how Smart Bulk Copy will try to load tables based on indexes and partitioning:
 
 **Non-Partitioned Tables**
 - *HEAP Table*: Parallel Bulk Load using Logical Partitions
@@ -246,17 +247,25 @@ ALTER TABLE <schema>.<table>
 SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = <schema>.<history_table>));
 ```
 
-If you prefer to handle this process manually, of if Smart Bulk Copy was stopped via Ctrl-C while copying the table, you may need to manually re-enable the temporal support. In any case, please read the following links:
+If you prefer to handle this process manually, or if Smart Bulk Copy was stopped via a double `Ctrl-C` while copying the table, you may need to manually re-enable the temporal support. In any case, please read the following links:
 
 [Alter non-temporal table to be a system-versioned temporal table](https://docs.microsoft.com/en-us/sql/relational-databases/tables/creating-a-system-versioned-temporal-table?view=sql-server-ver15#alter-non-temporal-table-to-be-a-system-versioned-temporal-table)
 
 ### Azure SQL / SQL Server Special Data Types support
 
-In Azure SQL / SQL Server you can use HiearchyId, Geography and Geometry....TDB
+In Azure SQL / SQL Server you can use `HiearchyId`, `Geography` and `Geometry` data types. Those data types are a bit special since they are implemented as SQLCLR data types, residing in the Microsoft.SqlServer.Types assembly. Those types are 100% compatible with the System.Data.SqlClient library, [which is being replaced by](https://devblogs.microsoft.com/dotnet/introducing-the-new-microsoftdatasqlclient/) the new Microsoft.Data.SqlClient, that supports also .NET Core.
+
+Smart Bulk Copy has been lately updated to use the latest version of Microsoft.Data.SqlClient - 2.0.1 at time of writing - which add support for the ORDER hint in Bulk Load, but that unfortunately completely [brake support to Microsoft.SqlServer.Types](https://github.com/dotnet/SqlClient/issues/30).
+
+Luckily, for doing a Bulk Load, the only thing really needed to move data stored in those columns around is the ability to Serialize and De-Serialize binary data, via the [IBinarySerialize](https://docs.microsoft.com/en-us/dotnet/api/microsoft.sqlserver.server.ibinaryserialize) interface which is already available in [Microsoft.Data.SqlClient.Server](https://github.com/dotnet/SqlClient/blob/0d4c9bb3d55e096a0f3196565b2c786a9125aaf8/src/Microsoft.Data.SqlClient/netcore/ref/Microsoft.Data.SqlClient.cs#L1500).
+
+This means it is possible to create a "fake" implementation on the above types, that only focus on serialization and de-serialization, just to allow Bulk Load to work. Thanks to Assembly redirection, every time a methods tries to access Microsoft.SqlServer.Types it can be redirected to the custom-made implementation, so that everything can the BulkCopy object cal work without errors. 
+
+From version 1.9.1 of Smart Bulk Copy, this has been done. You can see the implementation of the faked types in the `hack/` folder. Please DO NOT USE THAT ASSEMBLY IN ANY OTHER PROJECTS, otherwise it is very likely that you'll get errors. I have extensively tested the implementation, but is really an hack, so do a random check of your data once it has move to the destination table, just as an additional precaution.
 
 ### I would change the code here and there, can I?
 
-Sure feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. Code can be largely improved even, if I tried to apply some of the best practices, but when I had to make some choice I chose simplicity over everything else.
+Sure, feel free to contribute! I created this tool just with the goal to get the job done in the easiest way possible. I tried to apply some of the well-known best practices, but in general I've followed the KISS principle by favoring simplicity over everything else. 
 
 ## Tests
 
