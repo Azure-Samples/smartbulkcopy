@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Microsoft.SqlServer.Types</AssemblyName>
+    <RootNamespace>Microsoft.SqlServer.Types</RootNamespace>
+    <Authors>Davide Mauri</Authors>
+    <Company />
+    <Product>Microsoft.SqlServer.Types.Hack</Product>
+    <Description>Mocked version of Microsoft.SqlServer.Types that only implements Write and Read behaviour to allow Bulk Load to work correctly on Geometry, Geographt and HierarchyId data types</Description>
+    <Version>0.0.1.0</Version>
+    <Copyright>Davide Mauri</Copyright>
+  </PropertyGroup>
+
+ <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="2.0.1" />
+  </ItemGroup> 
+
+</Project>

@@ -13,9 +13,9 @@
     <PackageProjectUrl>https://github.com/yorek/smartbulkcopy</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yorek/smartbulkcopy</RepositoryUrl>
     <RepositoryType>GIT</RepositoryType>
-    <Version>1.8.2</Version>
-    <AssemblyVersion>1.8.2</AssemblyVersion>
-    <FileVersion>1.8.2</FileVersion>
+    <Version>1.9.1</Version>
+    <AssemblyVersion>1.9.1</AssemblyVersion>
+    <FileVersion>1.9.1</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <Title>SmartBulkCopy</Title>
@@ -8,9 +8,9 @@
     <Authors>Davide Mauri</Authors>
     <Product>Smart Bulk Copy</Product>
     <PackageId>SmartBulkCopy</PackageId>
-    <Version>1.8.2</Version>
-    <AssemblyVersion>1.8.2</AssemblyVersion>
-    <FileVersion>1.8.2</FileVersion>
+    <Version>1.9.1</Version>
+    <AssemblyVersion>1.9.1</AssemblyVersion>
+    <FileVersion>1.9.1</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
     <Description>Efficently copy database tables from one SQL Server/Azure SQL database to another</Description>
     <Copyright>Davide Mauri</Copyright>
@@ -21,17 +21,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.0.35" />
-    <PackageReference Include="Microsoft.Data.Sqlclient" Version="2.0.1" />
+    <PackageReference Include="Dapper" Version="2.0.35" />    
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="2.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
-    <PackageReference Include="Microsoft.SqlServer.Types" Version="14.0.1016.290">
-      <NoWarn>NU1701</NoWarn>
-    </PackageReference>
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />    
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />
+  </ItemGroup> 
+  <ItemGroup>
+    <ProjectReference Include="..\hack\Microsoft.SqlServer.Types.Hack.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +41,11 @@
     <Content Include="*.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
+  </ItemGroup>  
 
+  <ItemGroup>
+    <Reference Include="Microsoft.SqlServer.Types">
+      <HintPath>..\hack\bin\Debug\netstandard2.0\Microsoft.SqlServer.Types.dll</HintPath>
+    </Reference>
+  </ItemGroup> 
 </Project>

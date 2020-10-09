@@ -1,11 +1,6 @@
 ﻿using System;
-using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
 using NLog;
-using NLog.Extensions.Logging;
 
 namespace SmartBulkCopy
 {

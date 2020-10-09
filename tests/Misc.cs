@@ -34,5 +34,21 @@ namespace SmartBulkCopy.Tests
 
             Assert.AreEqual(AnalysisOutcome.DestinationIsTemporalTable, tar.Outcome);
         }    
+
+        [Test]
+        public async Task Table_With_HiearchyId()
+        {
+            var tar = await AnalyzeTable("schema1.hierarchical_data");
+
+            Assert.AreEqual(AnalysisOutcome.Success, tar.Outcome);
+        }    
+
+        [Test]
+        public async Task Table_With_Geospatial()
+        {
+            var tar = await AnalyzeTable("schema1.spatial_data");
+
+            Assert.AreEqual(AnalysisOutcome.Success, tar.Outcome);
+        }    
     }
 }

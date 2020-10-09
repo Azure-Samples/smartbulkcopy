@@ -2,15 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Data;
-using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text;
+using System.Text.RegularExpressions;
+using System.Runtime.Loader;
+using System.Reflection;
+using Microsoft.Data.SqlClient;
+using Microsoft.SqlServer.Types;
 using Dapper;
 using NLog;
-using System.Text.RegularExpressions;
 
 namespace SmartBulkCopy
 {
@@ -43,10 +45,26 @@ namespace SmartBulkCopy
         private CancellationTokenSource ctsMonitor = new CancellationTokenSource();
         private CancellationTokenSource ctsCopy = new CancellationTokenSource();
 
+        private Assembly OnAssemblyResolve(AssemblyLoadContext assemblyLoadContext, AssemblyName assemblyName)
+        {
+            // SqlServer.Types assembly redirection            
+            if (assemblyName.FullName.Contains("Microsoft.SqlServer.Types") && assemblyName.FullName.Contains("PublicKeyToken=89845dcd8080cc91"))
+            {
+                var a = typeof(SqlHierarchyId).Assembly;
+                _logger.Debug($"Rebinding {assemblyName.FullName} to {a.FullName}");
+                _logger.Warn($"Detected usage of SqlServer Data Types. Using custom assembly '{a.FullName}' to allow Bulk Load to work.");
+                return a;
+            }
+
+            return null;
+        }
+
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
             _logger = logger;
             _config = config;
+
+            AssemblyLoadContext.Default.Resolving += OnAssemblyResolve;
 
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
@@ -121,7 +139,7 @@ namespace SmartBulkCopy
             _logger.Info("Gathering tables info...");
             var ticSource = new TablesInfoCollector(_config.SourceConnectionString, internalTablesToCopy, _logger);
             var ticDestination = new TablesInfoCollector(_config.DestinationConnectionString, internalTablesToCopy, _logger);
-   
+
             var ti1 = ticSource.CollectTablesInfoAsync();
             var ti2 = ticDestination.CollectTablesInfoAsync();
 
@@ -152,7 +170,7 @@ namespace SmartBulkCopy
 
                 _logger.Info("Truncating destination tables...");
                 internalTablesToCopy.ForEach(t => TruncateDestinationTable(t));
-            }            
+            }
 
             _logger.Info($"Copying using up to {_config.MaxParallelTasks} parallel tasks.");
             var tasks = new List<Task>();
@@ -188,7 +206,7 @@ namespace SmartBulkCopy
             {
                 _logger.Info("Re-Enabling system versioned tables, if any...");
                 internalTablesToCopy.ForEach(t => EnableSystemVersioning(tiDestination.Find(t2 => t2.TableName == t)));
-            }      
+            }
 
             int result = 0;
 
@@ -225,7 +243,7 @@ namespace SmartBulkCopy
                 var tableName = tableInfo.TableName;
                 _logger.Info($"Disabling system versioning on '{tableName}'...");
                 var dc = new SqlConnection(_config.DestinationConnectionString);
-                
+
                 dc.ExecuteScalar($"alter table {tableName} set (system_versioning = off)");
                 dc.ExecuteScalar($"alter table {tableName} drop period for system_time");
             }
@@ -238,9 +256,9 @@ namespace SmartBulkCopy
                 var tableName = tableInfo.TableName;
                 _logger.Info($"Re-Enabling system versioning on '{tableName}'...");
                 var dc = new SqlConnection(_config.DestinationConnectionString);
-                
+
                 dc.ExecuteScalar($"alter table {tableName} add period for system_time ({tableInfo.HistoryInfo.PeriodStartColumn}, {tableInfo.HistoryInfo.PeriodEndColumn})");
-                dc.ExecuteScalar($"alter table {tableName} set (system_versioning = on (history_table = {tableInfo.HistoryInfo.HistoryTable}, history_retention_period = {tableInfo.HistoryInfo.RetentionPeriod}))");                
+                dc.ExecuteScalar($"alter table {tableName} set (system_versioning = on (history_table = {tableInfo.HistoryInfo.HistoryTable}, history_retention_period = {tableInfo.HistoryInfo.RetentionPeriod}))");
             }
         }
 
@@ -300,7 +318,7 @@ namespace SmartBulkCopy
             }
 
             return result;
-        }        
+        }
 
         private void TruncateDestinationTable(string tableName)
         {
@@ -341,7 +359,7 @@ namespace SmartBulkCopy
                         whereClause = $" WHERE {predicate}";
                     };
                     var orderBy = "";
-                    if (copyInfo.OrderHintType != OrderHintType.None) 
+                    if (copyInfo.OrderHintType != OrderHintType.None)
                     {
                         orderBy = copyInfo.GetOrderBy();
                         if (!string.IsNullOrEmpty(orderBy))
@@ -402,10 +420,10 @@ namespace SmartBulkCopy
                                 {
                                     bulkCopy.ColumnMappings.Add(c, c);
                                 }
-                                
+
                                 if (copyInfo.OrderHintType == OrderHintType.ClusteredIndex)
                                 {
-                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");                                    
+                                    _logger.Debug($"Task {taskId}: Adding OrderHints ({copyInfo.OrderHintType}).");
                                     var oc = copyInfo.SourceTableInfo.PrimaryIndex.GetOrderBy();
                                     foreach (var ii in oc)
                                     {
@@ -422,24 +440,28 @@ namespace SmartBulkCopy
                                     }
                                 }
 
-                                if (copyInfo.DestinationTableInfo.PrimaryIndex is ColumnStoreClusteredIndex) 
+                                if (copyInfo.DestinationTableInfo.PrimaryIndex is ColumnStoreClusteredIndex)
                                 {
                                     // Make sure Columnstore will have as few rowgroups as possible
                                     if (bulkCopy.BatchSize < 102400) bulkCopy.BatchSize = 102400;
                                     _logger.Debug($"Task {taskId}: Forcing BatchSize to 102400");
-                                } else {
+                                }
+                                else
+                                {
                                     bulkCopy.BatchSize = _config.BatchSize;
                                 }
-                            
-                                if (ct.IsCancellationRequested) 
+
+                                if (ct.IsCancellationRequested)
                                     ct.ThrowIfCancellationRequested();
 
                                 Task innerTask = null;
-                                try {
+                                try
+                                {
                                     innerTask = bulkCopy.WriteToServerAsync(sourceReader, ct);
                                     innerTask.Wait();
-                                } 
-                                catch (Exception ex) {
+                                }
+                                catch (Exception ex)
+                                {
                                     if (innerTask != null)
                                     {
                                         var ine = innerTask.Exception?.InnerException ?? ex;
@@ -452,35 +474,35 @@ namespace SmartBulkCopy
                                             if (ine is InvalidOperationException) throw (ine as InvalidOperationException);
                                             if (ine is TaskCanceledException) throw (ine as TaskCanceledException);
                                             if (!(ine is AggregateException)) _logger.Error($"Task {taskId}@WriteToServerAsync: [{ine.GetType()}] {ine.Message}");
-                                            ine = ine.InnerException;                                            
+                                            ine = ine.InnerException;
                                         }
                                         throw ex;
-                                    }                                    
+                                    }
                                 }
 
-                                _logger.Info($"Task {taskId}: Committing changes to {copyInfo.TableName}...");                     
+                                _logger.Info($"Task {taskId}: Committing changes to {copyInfo.TableName}...");
                                 attempts = int.MaxValue;
                                 taskTran.Commit();
                             }
                         }
-                        catch(OperationCanceledException)
+                        catch (OperationCanceledException)
                         {
                             attempts = int.MaxValue;
                             throw;
                         }
-                        catch(InvalidOperationException ioe)
+                        catch (InvalidOperationException ioe)
                         {
                             waitTime = attempts * _delay;
 
                             _logger.Warn($"Task {taskId}@Transaction: Transient error while copying data. Waiting {waitTime} seconds and then trying again...");
                             _logger.Warn($"Task {taskId}@Transaction: [InvalidOperationException] {ioe.Message}");
 
-                            if (taskTran?.Connection != null) 
+                            if (taskTran?.Connection != null)
                                 taskTran.Rollback();
 
-                            Task.Delay(waitTime * 1000).Wait();   
+                            Task.Delay(waitTime * 1000).Wait();
                         }
-                        catch(SqlException se)
+                        catch (SqlException se)
                         {
                             if (_transientErrors.Contains(se.Number))
                             {
@@ -532,12 +554,13 @@ namespace SmartBulkCopy
                 while (ie != null)
                 {
                     if (ie is TaskCanceledException) canceled = true;
-                    if (ie is OperationCanceledException) canceled = true;                                        
-                    var se = ie as SqlException; 
+                    if (ie is OperationCanceledException) canceled = true;
+                    var se = ie as SqlException;
                     if (se != null)
-                    {                        
+                    {
                         _logger.Error($"Task {taskId}: [{se.Number}] {se.Message}");
-                    } else 
+                    }
+                    else
                     {
                         if (!(ie is TaskCanceledException) && !(ie is OperationCanceledException))
                             _logger.Error($"Task {taskId}: [{ex.GetType()}] {ex.Message}");
@@ -548,7 +571,9 @@ namespace SmartBulkCopy
                 if (!canceled)
                 {
                     _logger.Error($"Task {taskId}: Completed with errors.");
-                } else {
+                }
+                else
+                {
                     _logger.Warn($"Task {taskId}: Execution has been canceled.");
                 }
             }
@@ -633,7 +658,7 @@ namespace SmartBulkCopy
                     if (_queue.Count == 0 && runningTasks == 0) break;
 
                     var log_flush = Convert.ToDecimal(conn.ExecuteScalar(query) ?? 0);
-                    var copyingTables = String.Join(',', _activeTasks.Values.Distinct().ToArray());
+                    var copyingTables = String.Join(",", _activeTasks.Values.Distinct().ToArray());
                     if (copyingTables == "") copyingTables = "None";
                     _logger.Info($"Log Flush Speed: {log_flush:00.00} MB/Sec, {runningTasks} Running Tasks, Queue Size {_queue.Count}, Tables being copied: {copyingTables}.");
 
@@ -752,7 +777,9 @@ namespace SmartBulkCopy
                             {
                                 _logger.Debug($"Including via wildcard {tb.Name}...");
                                 internalTablesToCopy.Add(tb.Name);
-                            } else {
+                            }
+                            else
+                            {
                                 _logger.Debug($"Excluding via wildcard {tb.Name}...");
                                 internalTablesToCopy.Remove(tb.Name);
                             }
@@ -761,12 +788,13 @@ namespace SmartBulkCopy
                 }
                 else
                 {
-                    var parts = t.Split('.');                    
-                    var qt = string.Join('.', parts.Select( p => {
+                    var parts = t.Split('.');
+                    var qt = string.Join(".", parts.Select(p =>
+                    {
                         string n = "";
-                        if (!p.StartsWith('[')) n += "[";
+                        if (!p.StartsWith("[")) n += "[";
                         n += p;
-                        if (!p.EndsWith(']')) n += "]";
+                        if (!p.EndsWith("]")) n += "]";
                         return n;
                     }).ToArray());
 
@@ -774,14 +802,16 @@ namespace SmartBulkCopy
                     {
                         _logger.Debug($"Including {qt}...");
                         internalTablesToCopy.Add(qt);
-                    } else {
+                    }
+                    else
+                    {
                         _logger.Debug($"Excluding {qt}...");
                         internalTablesToCopy.Remove(qt);
                     }
                 }
             }
 
-            internalTablesToCopy.ForEach( t => _logger.Info($"Queueing table {t}..."));
+            internalTablesToCopy.ForEach(t => _logger.Info($"Queueing table {t}..."));
 
             return internalTablesToCopy;
         }
@@ -791,11 +821,13 @@ namespace SmartBulkCopy
             if (!ctsCopy.IsCancellationRequested)
             {
                 _logger.Warn("Cancelling Smart Bulk Copy execution. Asking tasks to cancel (this may take some minutes, please be patient)...");
-                _logger.Warn("(CTRL+C again to terminate the process abruptly)");                
+                _logger.Warn("(CTRL+C again to terminate the process abruptly)");
                 ctsCopy.Cancel();
                 ctsMonitor.Cancel();
                 args.Cancel = true;
-            } else {
+            }
+            else
+            {
                 _logger.Warn("WARN: Terminating process immediately.");
                 _logger.Warn("WARN: Destination database may be left in an inconsistent state.");
             }
