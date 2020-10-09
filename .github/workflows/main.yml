@@ -3,7 +3,7 @@ on:
   push:
     branches: [ main, master, 1.9.1]
   pull_request:
-    branches: [ main, master, 1.9.1]
+    branches: [ main, master ]
 jobs:
   Test:
     runs-on: ubuntu-latest
@@ -14,11 +14,9 @@ jobs:
       uses: actions/setup-dotnet@v1.7.2
       with:
         dotnet-version: '3.1' 
-    - name: Restore dependencies 
-      working-directory: tests
+    - name: Restore dependencies       
       run: dotnet restore      
     - name: Run tests 
-      working-directory: tests
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
