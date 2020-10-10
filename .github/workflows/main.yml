@@ -1,11 +1,11 @@
 name: Run Unit Tests
 on:
   push:
-    branches: [ main, master, 1.9.1]
+    branches: [ main, master, 1.9.2]
   pull_request:
     branches: [ main, master ]
 jobs:
-  Test:
+  Unit-Test:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repo
@@ -21,4 +21,23 @@ jobs:
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
       run: dotnet test     
+  E2E-Test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v2
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v1.7.2
+      with:
+        dotnet-version: '3.1' 
+    - name: Restore dependencies       
+      run: dotnet restore      
+    - name: Install jq
+      run: sudo apt-get install jq
+    - name: Run tests 
+      env: 
+        source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
+        destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}            
+      run: 
+        cd client; dotnet run -- ./e2e-test.config.json
       

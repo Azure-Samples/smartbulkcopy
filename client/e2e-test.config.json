@@ -1,0 +1,21 @@
+{
+    "tables": {
+        "include": ["schema1.*"],
+        "exclude": ["schema1.table_with_fk", "schema1.mix"]
+    },
+    "options": {
+        "tasks": 8,
+        "logical-partitions": "auto",
+        "batch-size": 100000,
+        "truncate-tables": true,
+        "safe-check": "none",
+        "stop-if": {
+            "secondary-indexes": true,
+            "temporal-table": false 
+        },
+        "retry-connection": {
+            "delay-increment": 10,
+            "max-attempt": 5
+        }
+    }
+}

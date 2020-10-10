@@ -128,8 +128,8 @@ namespace SmartBulkCopy
 
             var sbcc = new SmartBulkCopyConfiguration();                
 
-            sbcc.SourceConnectionString = config["source:connection-string"];
-            sbcc.DestinationConnectionString = config["destination:connection-string"];
+            sbcc.SourceConnectionString = config["source:connection-string"] ?? Environment.GetEnvironmentVariable("source-connection-string");
+            sbcc.DestinationConnectionString = config["destination:connection-string"] ?? Environment.GetEnvironmentVariable("destination-connection-string");
             sbcc.BatchSize = int.Parse(config?["options:batch-size"] ?? sbcc.BatchSize.ToString());
             sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
