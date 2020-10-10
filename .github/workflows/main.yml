@@ -23,6 +23,7 @@ jobs:
       run: dotnet test     
   E2E-Test:
     runs-on: ubuntu-latest
+    needs: [ Unit-Test ]
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v2
@@ -32,8 +33,6 @@ jobs:
         dotnet-version: '3.1' 
     - name: Restore dependencies       
       run: dotnet restore      
-    - name: Install jq
-      run: sudo apt-get install jq
     - name: Run tests 
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        

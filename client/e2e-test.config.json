@@ -1,7 +1,7 @@
 {
     "tables": {
         "include": ["schema1.*"],
-        "exclude": ["schema1.table_with_fk", "schema1.mix"]
+        "exclude": ["schema1.table_with_fk", "schema1.mix", "schema1.clustered_rowstore_pk"]
     },
     "options": {
         "tasks": 8,
