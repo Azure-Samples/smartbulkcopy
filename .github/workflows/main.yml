@@ -1,11 +1,11 @@
-name: Run Unit Tests
+name: Run Tests
 on:
   push:
     branches: [ main, master, 1.9.2]
   pull_request:
     branches: [ main, master ]
 jobs:
-  Test:
+  'Run Tests':
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repo
