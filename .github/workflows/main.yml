@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [ main, master ]
 jobs:
-  Unit-Test:
+  Test:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repo
@@ -16,24 +16,12 @@ jobs:
         dotnet-version: '3.1' 
     - name: Restore dependencies       
       run: dotnet restore      
-    - name: Run tests 
+    - name: Run Unit Tests 
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
       run: dotnet test     
-  E2E-Test:
-    runs-on: ubuntu-latest
-    needs: [ Unit-Test ]
-    steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v2
-    - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v1.7.2
-      with:
-        dotnet-version: '3.1' 
-    - name: Restore dependencies       
-      run: dotnet restore      
-    - name: Run tests 
+    - name: Run E2E Tests 
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}            
