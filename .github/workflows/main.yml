@@ -1,11 +1,11 @@
-name: Run Unit Tests
+name: Run Tests
 on:
   push:
-    branches: [ main, master, 1.9.1]
+    branches: [ main, master, 1.9.2]
   pull_request:
     branches: [ main, master ]
 jobs:
-  Test:
+  RunTests:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repo
@@ -16,9 +16,15 @@ jobs:
         dotnet-version: '3.1' 
     - name: Restore dependencies       
       run: dotnet restore      
-    - name: Run tests 
+    - name: Run Unit Tests 
       env: 
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}        
       run: dotnet test     
+    - name: Run E2E Tests 
+      env: 
+        source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
+        destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}            
+      run: 
+        cd client; dotnet run -- ./e2e-test.config.json
       
