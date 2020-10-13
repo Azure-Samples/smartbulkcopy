@@ -1,4 +1,29 @@
+---
+page_type: sample
+languages:
+- tsql
+- sql
+- csharp
+products:
+- azure
+- dotnet-core
+- azure-sql-database
+- azure-sqlserver-vm
+- azure-sql-virtual-machines
+- sql-server
+description: "Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another"
+urlFragment: "smart-bulk-copy"
+---
+
 # Smart Bulk Copy
+
+<!-- 
+Guidelines on README format: https://review.docs.microsoft.com/help/onboard/admin/samples/concepts/readme-template?branch=master
+
+Guidance on onboarding samples to docs.microsoft.com/samples: https://review.docs.microsoft.com/help/onboard/admin/samples/process/onboarding?branch=master
+
+Taxonomies for products and languages: https://review.docs.microsoft.com/new-hope/information-architecture/metadata/taxonomies?branch=master
+-->
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg) ![Run Tests](https://github.com/yorek/smartbulkcopy/workflows/Run%20Tests/badge.svg) ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/yorek/smartbulkcopy)
 
