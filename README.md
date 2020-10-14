@@ -11,7 +11,7 @@ products:
 - azure-sqlserver-vm
 - azure-sql-virtual-machines
 - sql-server
-description: "Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another"
+description: "Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL or SQL Server database to another"
 urlFragment: "smart-bulk-copy"
 ---
 
