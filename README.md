@@ -276,7 +276,7 @@ If you prefer to handle this process manually, or if Smart Bulk Copy was stopped
 
 [Alter non-temporal table to be a system-versioned temporal table](https://docs.microsoft.com/en-us/sql/relational-databases/tables/creating-a-system-versioned-temporal-table?view=sql-server-ver15#alter-non-temporal-table-to-be-a-system-versioned-temporal-table)
 
-### Azure SQL / SQL Server Special Data Types support
+### Azure SQL / SQL Server Data Types support
 
 In Azure SQL / SQL Server you can use `HiearchyId`, `Geography` and `Geometry` data types. Those data types are a bit special since they are implemented as SQLCLR data types, residing in the Microsoft.SqlServer.Types assembly. Those types are 100% compatible with the System.Data.SqlClient library, [which is being replaced by](https://devblogs.microsoft.com/dotnet/introducing-the-new-microsoftdatasqlclient/) the new Microsoft.Data.SqlClient, that supports also .NET Core.
 
