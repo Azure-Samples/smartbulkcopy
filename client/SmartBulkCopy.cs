@@ -65,10 +65,6 @@ namespace SmartBulkCopy
             _config = config;
 
             AssemblyLoadContext.Default.Resolving += OnAssemblyResolve;
-
-            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
-
-            _logger.Info($"SmartBulkCopy engine v. {v}");
         }
 
         public async Task<int> Copy()

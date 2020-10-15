@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
+using NLog;
 
 namespace SmartBulkCopy
 {
@@ -24,7 +25,7 @@ namespace SmartBulkCopy
     }
 
     public class SmartBulkCopyConfiguration 
-    {
+    {        
         public string SourceConnectionString;
         
         public string DestinationConnectionString;         
@@ -107,19 +108,21 @@ namespace SmartBulkCopy
 
         public static SmartBulkCopyConfiguration EmptyConfiguration => new SmartBulkCopyConfiguration();
 
-        public static SmartBulkCopyConfiguration LoadFromConfigFile()
+        public static SmartBulkCopyConfiguration LoadFromConfigFile(ILogger logger)        
         {
-            return LoadFromConfigFile("smartbulkcopy.config");
+            return LoadFromConfigFile("smartbulkcopy.config", logger);
         }
 
-        public static SmartBulkCopyConfiguration LoadFromConfigFile(string configFile)
+        public static SmartBulkCopyConfiguration LoadFromConfigFile(string configFile, ILogger logger)
         {
-            // If config file is not found, automatically add .json extension
+            // If config file is not found, automatically add .json extension            
             if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), configFile)))
             {
                 if (Path.GetExtension(configFile) != ".json")
                     configFile += ".json";
             }
+
+            logger.Info($"Loading configuration from: {configFile}...");
 
             var config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())

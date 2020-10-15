@@ -30,7 +30,11 @@ Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server d
 
 It can be also used to efficiently and quickly move data from two instances of SQL Server running in two different cloud providers or to move from on-premises to the cloud.
 
-Smart Bulk Copy is also available as a [Docker Image](https://hub.docker.com/repository/docker/yorek/smartbulkcopy).
+Smart Bulk Copy is also available as a [Docker Image](https://hub.docker.com/repository/docker/yorek/smartbulkcopy). To run Smart Bulk Copy via docker, you have to map a volume where the desired .config file can be found. For example (on Windows):
+
+```
+docker run -it -v c:\work\_git\smart-bulk-copy\client\configs:/app/client/configs yorek/smartbulkcopy:latest /app/client/configs/smartbulkcopy.config.json
+```
 
 ## How it works
 
