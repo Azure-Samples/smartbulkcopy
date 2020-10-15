@@ -5,8 +5,9 @@ languages:
 - sql
 - csharp
 products:
-- dotnet-core
+- azure
 - azure-sql-database
+- dotnet-core
 description: "Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL or SQL Server database to another"
 urlFragment: "smart-bulk-copy"
 ---
