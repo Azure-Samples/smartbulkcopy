@@ -5,7 +5,6 @@ languages:
 - sql
 - csharp
 products:
-- azure
 - dotnet-core
 - azure-sql-database
 - azure-sqlserver-vm
