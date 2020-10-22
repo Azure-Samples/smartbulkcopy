@@ -9,7 +9,6 @@ products:
 - sql-server
 - azure-sql-managed-instance
 - azure-sqlserver-vm
-- azure-sql-vm
 - azure
 - dotnet
 - dotnet-core
