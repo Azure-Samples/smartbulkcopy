@@ -13,7 +13,7 @@ namespace SmartBulkCopy
 
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
-            logger.Info($"SmartBulkCopy v. {v}");
+            logger.Info($"Smart Bulk Copy v. {v}");
 
             try
             {

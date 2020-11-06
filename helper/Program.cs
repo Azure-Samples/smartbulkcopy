@@ -12,7 +12,7 @@ namespace SmartBulkCopy
 
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
-            logger.Info($"Schema Helper (part of SmartBulkCopy toolset) - v. {v}");
+            logger.Info($"Schema Helper (part of Smart Bulk Copy toolset) - v. {v}");
 
             SchemaCloneConfiguration config;
             if (args.Length > 0)
