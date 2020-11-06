@@ -122,6 +122,8 @@ namespace SmartBulkCopy
                     configFile += ".json";
             }
 
+            configFile = Path.GetFullPath(configFile);
+
             logger.Info($"Loading configuration from: {configFile}...");
 
             var config = new ConfigurationBuilder()
