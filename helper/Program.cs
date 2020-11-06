@@ -1,0 +1,27 @@
+﻿using System;
+using System.Threading.Tasks;
+using NLog;
+
+namespace SmartBulkCopy
+{
+    class Program
+    {
+        public static void Main(string[] args)
+        {
+            var logger = LogManager.GetCurrentClassLogger();
+
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
+
+            logger.Info($"Schema Helper (part of SmartBulkCopy toolset) - v. {v}");
+
+            SchemaCloneConfiguration config;
+            if (args.Length > 0)
+                config = SchemaCloneConfiguration.LoadFromConfigFile(args[0], logger);
+            else 
+                config = SchemaCloneConfiguration.LoadFromConfigFile(logger);
+
+            var sh = new SchemaClone(config, logger);
+            sh.CloneDatabaseSchema();
+        }
+    }
+}
