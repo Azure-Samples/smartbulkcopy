@@ -58,7 +58,7 @@ namespace SmartBulkCopy
 
             return null;
         }
-
+        
         public SmartBulkCopy(SmartBulkCopyConfiguration config, ILogger logger)
         {
             _logger = logger;

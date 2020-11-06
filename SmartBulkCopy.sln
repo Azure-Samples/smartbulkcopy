@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SmartBulkCopy", "client\Sma
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartBulkCopy.Tests", "tests\SmartBulkCopy.Tests.csproj", "{8B32BF64-71D8-4BAF-B3E2-BB6B068F9978}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartBulkCopy.SchemaClone", "helper\SmartBulkCopy.SchemaClone.csproj", "{C12D9095-C62D-49FF-8D26-52E41773284F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{B9F783CC-ECB9-41FA-A0F9-784456A48EA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B9F783CC-ECB9-41FA-A0F9-784456A48EA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B9F783CC-ECB9-41FA-A0F9-784456A48EA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C12D9095-C62D-49FF-8D26-52E41773284F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C12D9095-C62D-49FF-8D26-52E41773284F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C12D9095-C62D-49FF-8D26-52E41773284F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C12D9095-C62D-49FF-8D26-52E41773284F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
