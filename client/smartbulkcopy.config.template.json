@@ -10,6 +10,7 @@
         "exclude": []
     },
     "options": {
+        "command-timeout": 1800,
         "tasks": 8,
         "logical-partitions": "auto",
         "batch-size": 100000,

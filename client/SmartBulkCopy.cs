@@ -41,7 +41,6 @@ namespace SmartBulkCopy
         private readonly ConcurrentDictionary<string, string> _activeTasks = new ConcurrentDictionary<string, string>();
         private long _runningTasks = 0;
         private long _erroredTasks = 0;
-
         private CancellationTokenSource ctsMonitor = new CancellationTokenSource();
         private CancellationTokenSource ctsCopy = new CancellationTokenSource();
 
@@ -75,6 +74,9 @@ namespace SmartBulkCopy
         public async Task<int> Copy(List<String> tablesToCopy)
         {
             _logger.Info("Starting smart bulk copy process...");
+
+            _logger.Info($"Setting CommandTimeOut to: {_config.CommandTimeOut} secs");
+            Dapper.SqlMapper.Settings.CommandTimeout = 0;
 
             _logger.Info($"Using up to {_config.MaxParallelTasks} parallel tasks to copy data between databases.");
             _logger.Info($"Batch Size is set to: {_config.BatchSize}.");
