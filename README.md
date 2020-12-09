@@ -185,7 +185,7 @@ Defines how many times an operation should be attempted if a disconnection is de
 
 `"command-timeout": 5400`
 
-Introduced in **version 1.9.3** allows to set the timeout, in seconds, for a command before an error is generated. Default is set to 90 minutes (as some operations, like re-enabling Temporal Tables, if data size is big, can take quite a long time.)
+Introduced in **version 1.9.4** allows to set the timeout, in seconds, for a command before an error is generated. Default is set to 90 minutes (as some operations, like re-enabling Temporal Tables, if data size is big, can take quite a long time.)
 
 ## Notes on Azure SQL
 
