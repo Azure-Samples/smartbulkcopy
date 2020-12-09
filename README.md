@@ -28,7 +28,7 @@ Taxonomies for products and languages: https://review.docs.microsoft.com/new-hop
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg) ![Run Tests](https://github.com/yorek/smartbulkcopy/workflows/Run%20Tests/badge.svg) 
 
-*Latest Stable Version: 1.9.3*
+*Latest Stable Version: 1.9.4*
 
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
@@ -182,7 +182,11 @@ If Smart Bulk Copy detects a Temporal Table on the destintation database, it wil
 `"retry-connection": {"delay-increment": 10, "max-attempt": 5}`
 
 Defines how many times an operation should be attempted if a disconnection is detected and how much time (in seconds) should pass between two retries. Delay is incremented by `delay-incremement` every time a new attempt is tried.
- 
+
+`"command-timeout": 5400`
+
+Introduced in **version 1.9.3** allows to set the timeout, in seconds, for a command before an error is generated. Default is set to 90 minutes (as some operations, like re-enabling Temporal Tables, if data size is big, can take quite a long time.)
+
 ## Notes on Azure SQL
 
 Azure SQL is log-rated as described in [Transaction Log Rate Governance](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server#transaction-log-rate-governance) and it can do 96 MB/sec of log flushing. Smart Bulk Load will report the detected log flush speed every 5 seconds so that you can check if you can actually increase the number of parallel task to go faster or you're already at the limit. Please remember that 96 MB/Sec are done with higher SKU, so if you're already using 7 parallel tasks and you're not seeing something close to 96 MB/Sec please check that
