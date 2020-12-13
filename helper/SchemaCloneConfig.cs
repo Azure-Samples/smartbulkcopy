@@ -44,7 +44,7 @@ namespace SmartBulkCopy
 
         public static SchemaCloneConfiguration LoadFromConfigFile(ILogger logger)        
         {
-            return LoadFromConfigFile("smartbulkcopy.config", logger);
+            return LoadFromConfigFile("../client/smartbulkcopy.config", logger);
         }
 
         public static SchemaCloneConfiguration LoadFromConfigFile(string configFile, ILogger logger)

@@ -6,7 +6,7 @@ namespace SmartBulkCopy
 {
     class Program
     {
-        public static void Main(string[] args)
+        public static int Main(string[] args)
         {
             var logger = LogManager.GetCurrentClassLogger();
 
@@ -21,7 +21,8 @@ namespace SmartBulkCopy
                 config = SchemaCloneConfiguration.LoadFromConfigFile(logger);
 
             var sh = new SchemaClone(config, logger);
-            sh.CloneDatabaseSchema();
+            
+            return sh.CloneDatabaseSchema();
         }
     }
 }

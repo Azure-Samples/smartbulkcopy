@@ -32,13 +32,25 @@ namespace SmartBulkCopy
             _log = log;
         }
 
-        public void CloneDatabaseSchema()
+        public int CloneDatabaseSchema()
         {                    
             var ms = new MemoryStream();
 
             var scs = new SqlConnectionStringBuilder(_config.SourceConnectionString);
             var dcs = new SqlConnectionStringBuilder(_config.DestinationConnectionString);
             
+            if (_config.StopOn.HasFlag(StopOn.AnyUserObject))
+            {
+                _log.Info($"Checking for destination {dcs.DataSource}/{dcs.InitialCatalog} to be empty...");            
+
+                if (!IsDatabaseEmpty(dcs.ConnectionString))
+                {
+                    _log.Error($"Destination database {dcs.DataSource}/{dcs.InitialCatalog} is not empty.");
+                    _log.Info($"Stopped.");
+                    return -1;
+                }
+            }            
+
             _log.Info($"Extracting database schema from {scs.DataSource}/{scs.InitialCatalog}...");            
             var dc = new DacServices(scs.ConnectionString);       
             dc.ProgressChanged += OnProgressChanged;
@@ -50,9 +62,13 @@ namespace SmartBulkCopy
             var dp = DacPackage.Load(ms);      
             var mlo = new ModelLoadOptions();            
             var model = TSqlModel.LoadFromDacpac(ms, mlo);            
+            var excludedObjects = new List<ObjectDropInfo>();
+            _log.Info($"Analyzing tables...");
             var tables = model.GetObjects(DacQueryScopes.Default, Table.TypeClass).ToList();
-            var excludedObjects = GetObjectsToDrop(tables);
-
+            excludedObjects.AddRange(GetObjectsToDrop(tables));
+            _log.Info($"Analyzing views...");
+            var views = model.GetObjects(DacQueryScopes.Default, View.TypeClass).ToList();
+            excludedObjects.AddRange(GetObjectsToDrop(views));
             _log.Info($"Done.");            
             
             _log.Info($"Deploying schema to {dcs.DataSource}/{dcs.InitialCatalog}...");            
@@ -83,22 +99,20 @@ namespace SmartBulkCopy
             }
             _log.Info($"Done.");  
 
-            return;
-
-
+            return 0;
         }
 
-        public void OnProgressChanged(object sender, DacProgressEventArgs e)
+        private void OnProgressChanged(object sender, DacProgressEventArgs e)
         {
             _log.Info($"{e.Message}: {e.Status}");
         }
 
-        public void OnMessage(object server, DacMessageEventArgs e)
+        private void OnMessage(object server, DacMessageEventArgs e)
         {
             _log.Info($"{e.Message}");
         }
 
-        public List<ObjectDropInfo> GetObjectsToDrop(List<TSqlObject> tables)
+        private List<ObjectDropInfo> GetObjectsToDrop(List<TSqlObject> tables)
         {
             var excludedObjects = new List<ObjectDropInfo>();
 
@@ -228,6 +242,16 @@ namespace SmartBulkCopy
             }
 
             return excludedObjects;
+        }
+    
+        private bool IsDatabaseEmpty(string connectionString)
+        {
+            using (var conn = new SqlConnection(connectionString))
+            {
+                var result = conn.QueryFirstOrDefault<int>("select count(*) as objects_found from sys.objects where is_ms_shipped = 0");
+
+                return result == 0;
+            }
         }
     }
 }
