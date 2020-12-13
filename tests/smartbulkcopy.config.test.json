@@ -1,0 +1,28 @@
+{
+  "source": {
+    "connection-string": "Server=tcp:someserver.database.windows.net,1433;Initial Catalog=SmartBulkCopyTestSource;Persist Security Info=False;User ID=auser;Password=;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;Connection Timeout=90;"
+  },
+  "destination": {
+    "connection-string": "Server=tcp:someserver.database.windows.net,1433;Initial Catalog=SmartBulkCopyTestDestination;Persist Security Info=False;User ID=auser;Password=;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;Connection Timeout=90;"
+  },
+  "tables": {
+    "include": [ "*" ],
+    "exclude": [ "schema1.table_with_fk", "schema1.clustered_rowstore_pk", "schema1.mix" ]
+  },
+  "options": {
+    "command-timeout": 5400,
+    "tasks": 7,
+    "logical-partitions": "auto",
+    "batch-size": 100000,
+    "truncate-tables": true,
+    "safe-check": "none",
+    "stop-if": {
+      "secondary-indexes": true,
+      "temporal-table": false
+    },
+    "retry-connection": {
+      "delay-increment": 10,
+      "max-attempt": 5
+    }
+  }
+}

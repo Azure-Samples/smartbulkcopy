@@ -13,9 +13,9 @@
     <PackageProjectUrl>https://github.com/yorek/smartbulkcopy</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yorek/smartbulkcopy</RepositoryUrl>
     <RepositoryType>GIT</RepositoryType>
-    <Version>1.9.1</Version>
-    <AssemblyVersion>1.9.1</AssemblyVersion>
-    <FileVersion>1.9.1</FileVersion>
+    <Version>1.9.4</Version>
+    <AssemblyVersion>1.9.4</AssemblyVersion>
+    <FileVersion>1.9.4</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +30,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="*.config.test.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="*.config.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

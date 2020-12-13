@@ -79,6 +79,8 @@ namespace SmartBulkCopy
             }
         }
 
+        public int CommandTimeOut = 90 * 60; // 90 minutes
+
         private LogicalPartitioningStrategy _logicalPartitioningStrategy = LogicalPartitioningStrategy.Auto;
 
         public LogicalPartitioningStrategy LogicalPartitioningStrategy {
@@ -135,6 +137,7 @@ namespace SmartBulkCopy
 
             sbcc.SourceConnectionString = config["source:connection-string"] ?? Environment.GetEnvironmentVariable("source-connection-string");
             sbcc.DestinationConnectionString = config["destination:connection-string"] ?? Environment.GetEnvironmentVariable("destination-connection-string");
+            sbcc.CommandTimeOut = int.Parse(config?["options:command-timeout"] ?? sbcc.CommandTimeOut.ToString());
             sbcc.BatchSize = int.Parse(config?["options:batch-size"] ?? sbcc.BatchSize.ToString());
             sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());

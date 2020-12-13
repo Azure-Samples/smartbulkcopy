@@ -5,11 +5,13 @@ languages:
 - sql
 - csharp
 products:
-- dotnet-core
 - azure-sql-database
-- azure-sqlserver-vm
-- azure-sql-virtual-machines
 - sql-server
+- azure-sql-managed-instance
+- azure-sqlserver-vm
+- azure
+- dotnet
+- dotnet-core
 description: "Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL or SQL Server database to another"
 urlFragment: "smart-bulk-copy"
 ---
@@ -24,7 +26,9 @@ Guidance on onboarding samples to docs.microsoft.com/samples: https://review.doc
 Taxonomies for products and languages: https://review.docs.microsoft.com/new-hope/information-architecture/metadata/taxonomies?branch=master
 -->
 
-![License](https://img.shields.io/badge/license-MIT-green.svg) ![Run Tests](https://github.com/yorek/smartbulkcopy/workflows/Run%20Tests/badge.svg) ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/yorek/smartbulkcopy)
+![License](https://img.shields.io/badge/license-MIT-green.svg) ![Run Tests](https://github.com/yorek/smartbulkcopy/workflows/Run%20Tests/badge.svg) 
+
+*Latest Stable Version: 1.9.4*
 
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
@@ -178,7 +182,11 @@ If Smart Bulk Copy detects a Temporal Table on the destintation database, it wil
 `"retry-connection": {"delay-increment": 10, "max-attempt": 5}`
 
 Defines how many times an operation should be attempted if a disconnection is detected and how much time (in seconds) should pass between two retries. Delay is incremented by `delay-incremement` every time a new attempt is tried.
- 
+
+`"command-timeout": 5400`
+
+Introduced in **version 1.9.4** allows to set the timeout, in seconds, for a command before an error is generated. Default is set to 90 minutes (as some operations, like re-enabling Temporal Tables, if data size is big, can take quite a long time.)
+
 ## Notes on Azure SQL
 
 Azure SQL is log-rated as described in [Transaction Log Rate Governance](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server#transaction-log-rate-governance) and it can do 96 MB/sec of log flushing. Smart Bulk Load will report the detected log flush speed every 5 seconds so that you can check if you can actually increase the number of parallel task to go faster or you're already at the limit. Please remember that 96 MB/Sec are done with higher SKU, so if you're already using 7 parallel tasks and you're not seeing something close to 96 MB/Sec please check that
@@ -281,15 +289,15 @@ If you prefer to handle this process manually, or if Smart Bulk Copy was stopped
 
 ### Azure SQL / SQL Server Data Types support
 
-In Azure SQL / SQL Server you can use `HiearchyId`, `Geography` and `Geometry` data types. Those data types are a bit special since they are implemented as SQLCLR data types, residing in the Microsoft.SqlServer.Types assembly. Those types are 100% compatible with the System.Data.SqlClient library, [which is being replaced by](https://devblogs.microsoft.com/dotnet/introducing-the-new-microsoftdatasqlclient/) the new Microsoft.Data.SqlClient, that supports also .NET Core.
+In Azure SQL / SQL Server you can use `HiearchyId`, `Geography` and `Geometry` data types. Those data types are implemented as SQLCLR data types, residing in the Microsoft.SqlServer.Types assembly. Those types are 100% compatible with the System.Data.SqlClient library, [which is being replaced by](https://devblogs.microsoft.com/dotnet/introducing-the-new-microsoftdatasqlclient/) the new Microsoft.Data.SqlClient, that supports also .NET Core.
 
 Smart Bulk Copy has been lately updated to use the latest version of Microsoft.Data.SqlClient - 2.0.1 at time of writing - which add support for the ORDER hint in Bulk Load, but that unfortunately completely [broke support to Microsoft.SqlServer.Types](https://github.com/dotnet/SqlClient/issues/30).
 
-Luckily, for doing a Bulk Load, the only thing really needed to move data stored in those columns around is the ability to Serialize and De-Serialize binary data, via the [IBinarySerialize](https://docs.microsoft.com/en-us/dotnet/api/microsoft.sqlserver.server.ibinaryserialize) interface which is already available in [Microsoft.Data.SqlClient.Server](https://github.com/dotnet/SqlClient/blob/0d4c9bb3d55e096a0f3196565b2c786a9125aaf8/src/Microsoft.Data.SqlClient/netcore/ref/Microsoft.Data.SqlClient.cs#L1500).
+Luckily, for doing a Bulk Load, the only thing really needed to move data stored in those columns is the ability to Serialize and De-Serialize binary data, via the [IBinarySerialize](https://docs.microsoft.com/en-us/dotnet/api/microsoft.sqlserver.server.ibinaryserialize) interface which is already available in [Microsoft.Data.SqlClient.Server](https://github.com/dotnet/SqlClient/blob/0d4c9bb3d55e096a0f3196565b2c786a9125aaf8/src/Microsoft.Data.SqlClient/netcore/ref/Microsoft.Data.SqlClient.cs#L1500).
 
-This means it is possible to create a "fake" implementation on the above types, that only focus on serialization and de-serialization, just to allow Bulk Load to work. Thanks to Assembly redirection, every time a methods tries to access Microsoft.SqlServer.Types it can be redirected to the custom-made implementation, so that everything can the BulkCopy object cal work without errors. 
+This means it is possible to create a custom, unofficial, implementation on the above types, that only focus on serialization and de-serialization, just to allow Bulk Load to work. Thanks to Assembly redirection, every time a method tries to access Microsoft.SqlServer.Types it can be redirected to the custom-made implementation, so that everything can the BulkCopy object can work without errors. 
 
-From version 1.9.1 of Smart Bulk Copy, this has been done. You can see the implementation of the faked types in the `hack/` folder. Please DO NOT USE THAT ASSEMBLY IN ANY OTHER PROJECTS, otherwise it is very likely that you'll get errors. I have extensively tested the implementation, but is really an hack, so do a random check of your data once it has move to the destination table, just as an additional precaution.
+From version 1.9.1 of Smart Bulk Copy, this has been done. You can see the implementation of the faked types in the `hack/` folder. Please DO NOT USE THAT ASSEMBLY IN ANY OTHER PROJECT, otherwise it is very likely that you'll get errors. I have extensively tested the implementation, but is really an hack, so do a random check of your data once it has move to the destination table, just as an additional precaution.
 
 ### I would change the code here and there, can I?
 
