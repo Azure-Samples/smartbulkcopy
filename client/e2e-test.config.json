@@ -8,6 +8,7 @@
         "logical-partitions": "auto",
         "batch-size": 100000,
         "truncate-tables": true,
+        "sync-identity": false,
         "safe-check": "none",
         "stop-if": {
             "secondary-indexes": true,
