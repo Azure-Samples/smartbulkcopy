@@ -6,6 +6,7 @@ You can fine tune Smart Bulk Copy behavior with the configuration settings avail
 - [Partitions](#Partitions)
 - [Batch Size](#Batch%20Size)
 - [Table Truncation](#Table%20Truncation)
+- [Identity Sync](#Identity%20Sync)
 - [Safety Checks](#Safety%20Checks)
 - [Connection Resiliency](#Connection%20Resiliency)
 - [Command Timeout](#Command%20Timeout)
@@ -42,6 +43,12 @@ If you're unsure of what value you should use, leave the suggested 100000.
 `"truncate-tables": true`
 
 Instruct Smart Bulk Copy to truncate tables on the destination before loading them. This requires that destination table doesn't have any Foreign Key constraint: [TRUNCATE TABLE - Restrictions](https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-2017#restrictions) 
+
+## Identity Synchronization
+
+`"sync-identity": false`
+
+Introduced in **version 1.9.5**: If set to `true`, tells Smart Bulk Copy to make sure that IDENTITY values are synchronized from the source to the target database. This should already happen normally, so by default is set to `false`. If you have manually reseeded the IDENTITY values on the source table this option will make sure the same reseed will happen also on the target tables.
 
 ## Safety Checks
 
