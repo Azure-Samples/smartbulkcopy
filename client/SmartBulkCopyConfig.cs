@@ -81,6 +81,8 @@ namespace SmartBulkCopy
 
         public int CommandTimeOut = 90 * 60; // 90 minutes
 
+        public bool SyncIdentity = false;
+
         private LogicalPartitioningStrategy _logicalPartitioningStrategy = LogicalPartitioningStrategy.Auto;
 
         public LogicalPartitioningStrategy LogicalPartitioningStrategy {
@@ -139,6 +141,7 @@ namespace SmartBulkCopy
             sbcc.BatchSize = int.Parse(config?["options:batch-size"] ?? sbcc.BatchSize.ToString());
             sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
+            sbcc.SyncIdentity = bool.Parse(config?["options:sync-identity"] ?? sbcc.SyncIdentity.ToString());
             sbcc.RetryMaxAttempt = int.Parse(config?["options:retry-connection:max-attempt"] ?? sbcc.RetryMaxAttempt.ToString());
             sbcc.RetryDelayIncrement = int.Parse(config?["options:retry-connection:delay-increment"] ?? sbcc.RetryDelayIncrement.ToString());
             

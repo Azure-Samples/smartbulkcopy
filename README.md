@@ -13,7 +13,7 @@ products:
 - dotnet
 - dotnet-core
 description: "Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL or SQL Server database to another"
-urlFragment: "smart-bulk-copy"
+urlFragment: smart-bulk-copy
 ---
 
 # Smart Bulk Copy
@@ -28,7 +28,7 @@ Taxonomies for products and languages: https://review.docs.microsoft.com/new-hop
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg) ![Run Tests](https://github.com/yorek/smartbulkcopy/workflows/Run%20Tests/badge.svg) 
 
-*Latest Stable Version: 1.9.4*
+*Latest Stable Version: 1.9.5*
 
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
