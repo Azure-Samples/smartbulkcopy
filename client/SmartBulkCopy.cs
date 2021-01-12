@@ -221,9 +221,16 @@ namespace SmartBulkCopy
                 else
                 {
                     _logger.Info("All tables copied correctly.");
+
+                    if (_config.SyncIdentity)
+                    {
+                        _logger.Info("Synchronizing identity values...");
+                        await SyncIdentity();           
+                        _logger.Info("Identity synchronization done.");             
+                    }
                 }
 
-                _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
+                _logger.Info("Smart Bulk Copy completed in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
             }
             else
             {
@@ -316,6 +323,44 @@ namespace SmartBulkCopy
             }
 
             return result;
+        }
+
+        private async Task SyncIdentity()
+        {
+            var connSource = new SqlConnection(_config.SourceConnectionString);
+            var connDest = new SqlConnection(_config.DestinationConnectionString);
+            
+            string sqlSource = @"
+                with cte as
+                (
+                    select 	
+                        objectproperty([object_id], 'TableHasIdentity') as TableHasIdentity,
+                        ident_current(schema_name([schema_id]) + '.' + object_name([object_id])) as IdentityCurrent
+                    from
+                        sys.[tables]
+                    where 
+                    object_id = object_id(@tableName) 
+                )
+                select
+                    IdentityCurrent
+                from
+                    cte
+                where
+                    TableHasIdentity = 1
+                ";
+
+            foreach (var t in _tablesToCopy)
+            {
+                _logger.Debug($"Executing: {sqlSource}, @tableName = {t}");
+                var ic = await connSource.ExecuteScalarAsync<int?>(sqlSource, new { @tableName = t });
+                if (ic.HasValue)
+                {
+                    string sqlDest = $"dbcc checkident('{t}', reseed, {ic.Value})";
+                    _logger.Debug($"Executing: {sqlDest}, @tableName = {t}");
+                    connDest.Execute(sqlDest);
+                    _logger.Info($"Identity for table {t} set to {ic.Value}");
+                }
+            }
         }
 
         private void TruncateDestinationTable(string tableName)
