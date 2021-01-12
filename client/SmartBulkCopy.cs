@@ -225,8 +225,15 @@ namespace SmartBulkCopy
                     if (_config.SyncIdentity)
                     {
                         _logger.Info("Synchronizing identity values...");
-                        await SyncIdentity();           
-                        _logger.Info("Identity synchronization done.");             
+                        bool identitySynced = await SyncIdentity();           
+                        if (!identitySynced)
+                        {       
+                            _logger.Warn("WARNING! Identity synchronization encountered some errors!");
+                            result = 2;  
+                        } else 
+                        {
+                            _logger.Info("Identity synchronization done.");             
+                        }                        
                     }
                 }
 
@@ -286,6 +293,7 @@ namespace SmartBulkCopy
             var connSource = new SqlConnection(_config.SourceConnectionString);
             var connDest = new SqlConnection(_config.DestinationConnectionString);
             bool result = true;
+
             string sql = @"
                 select 
                     sum(row_count) as row_count 
@@ -325,12 +333,13 @@ namespace SmartBulkCopy
             return result;
         }
 
-        private async Task SyncIdentity()
+        private async Task<bool> SyncIdentity()
         {
             var connSource = new SqlConnection(_config.SourceConnectionString);
             var connDest = new SqlConnection(_config.DestinationConnectionString);
-            
-            string sqlSource = @"
+            bool result = true;
+
+            string sqlCheck = @"
                 with cte as
                 (
                     select 	
@@ -351,16 +360,27 @@ namespace SmartBulkCopy
 
             foreach (var t in _tablesToCopy)
             {
-                _logger.Debug($"Executing: {sqlSource}, @tableName = {t}");
-                var ic = await connSource.ExecuteScalarAsync<int?>(sqlSource, new { @tableName = t });
+                _logger.Debug($"Executing: {sqlCheck}, @tableName = {t}");
+                var ic = await connSource.ExecuteScalarAsync<int?>(sqlCheck, new { @tableName = t });
                 if (ic.HasValue)
                 {
-                    string sqlDest = $"dbcc checkident('{t}', reseed, {ic.Value})";
-                    _logger.Debug($"Executing: {sqlDest}, @tableName = {t}");
-                    connDest.Execute(sqlDest);
-                    _logger.Info($"Identity for table {t} set to {ic.Value}");
+                    string sqlSet = $"dbcc checkident('{t}', reseed, {ic.Value})";
+                    _logger.Debug($"Executing: {sqlSet}, @tableName = {t}");
+                    connDest.Execute(sqlSet);
+                    var ic2 = await connDest.ExecuteScalarAsync<int?>(sqlCheck, new { @tableName = t });
+                    if (ic.Value == ic2.Value) 
+                    {
+                        _logger.Info($"Identity for table {t} set to {ic.Value}");
+                    }                        
+                    else
+                    {
+                        _logger.Error($"Unable to sync identity value for {t} to {ic.Value}. Identity value found is {ic2.Value}.");
+                        result = false;
+                    }                            
                 }
             }
+
+            return result;
         }
 
         private void TruncateDestinationTable(string tableName)
