@@ -221,9 +221,23 @@ namespace SmartBulkCopy
                 else
                 {
                     _logger.Info("All tables copied correctly.");
+
+                    if (_config.SyncIdentity)
+                    {
+                        _logger.Info("Synchronizing identity values...");
+                        bool identitySynced = await SyncIdentity();           
+                        if (!identitySynced)
+                        {       
+                            _logger.Warn("WARNING! Identity synchronization encountered some errors!");
+                            result = 2;  
+                        } else 
+                        {
+                            _logger.Info("Identity synchronization done.");             
+                        }                        
+                    }
                 }
 
-                _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
+                _logger.Info("Smart Bulk Copy completed in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
             }
             else
             {
@@ -279,6 +293,7 @@ namespace SmartBulkCopy
             var connSource = new SqlConnection(_config.SourceConnectionString);
             var connDest = new SqlConnection(_config.DestinationConnectionString);
             bool result = true;
+
             string sql = @"
                 select 
                     sum(row_count) as row_count 
@@ -312,6 +327,56 @@ namespace SmartBulkCopy
                 {
                     _logger.Error($"Table {t} has {sourceRows} rows in source and {destRows} rows in destination!");
                     result = false;
+                }
+            }
+
+            return result;
+        }
+
+        private async Task<bool> SyncIdentity()
+        {
+            var connSource = new SqlConnection(_config.SourceConnectionString);
+            var connDest = new SqlConnection(_config.DestinationConnectionString);
+            bool result = true;
+
+            string sqlCheck = @"
+                with cte as
+                (
+                    select 	
+                        objectproperty([object_id], 'TableHasIdentity') as TableHasIdentity,
+                        ident_current(schema_name([schema_id]) + '.' + object_name([object_id])) as IdentityCurrent
+                    from
+                        sys.[tables]
+                    where 
+                    object_id = object_id(@tableName) 
+                )
+                select
+                    IdentityCurrent
+                from
+                    cte
+                where
+                    TableHasIdentity = 1
+                ";
+
+            foreach (var t in _tablesToCopy)
+            {
+                _logger.Debug($"Executing: {sqlCheck}, @tableName = {t}");
+                var ic = await connSource.ExecuteScalarAsync<int?>(sqlCheck, new { @tableName = t });
+                if (ic.HasValue)
+                {
+                    string sqlSet = $"dbcc checkident('{t}', reseed, {ic.Value})";
+                    _logger.Debug($"Executing: {sqlSet}, @tableName = {t}");
+                    connDest.Execute(sqlSet);
+                    var ic2 = await connDest.ExecuteScalarAsync<int?>(sqlCheck, new { @tableName = t });
+                    if (ic.Value == ic2.Value) 
+                    {
+                        _logger.Info($"Identity for table {t} set to {ic.Value}");
+                    }                        
+                    else
+                    {
+                        _logger.Error($"Unable to sync identity value for {t} to {ic.Value}. Identity value found is {ic2.Value}.");
+                        result = false;
+                    }                            
                 }
             }
 

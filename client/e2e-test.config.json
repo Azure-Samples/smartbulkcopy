@@ -1,6 +1,6 @@
 {
     "tables": {
-        "include": ["schema1.*"],
+        "include": ["schema1.*", "dbo.Issue17", "dbo.Issue23"],
         "exclude": ["schema1.table_with_fk", "schema1.mix", "schema1.clustered_rowstore_pk"]
     },
     "options": {
@@ -8,6 +8,7 @@
         "logical-partitions": "auto",
         "batch-size": 100000,
         "truncate-tables": true,
+        "sync-identity": false,
         "safe-check": "none",
         "stop-if": {
             "secondary-indexes": true,
