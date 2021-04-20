@@ -828,7 +828,7 @@ namespace SmartBulkCopy
                         where
                             o.is_ms_shipped = 0
                         and
-                            o.is_external = 0
+                            t.is_external = 0
                         and
 	                        t.[name] != 'sysdiagrams'
                     ");
