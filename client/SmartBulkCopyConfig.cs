@@ -8,10 +8,12 @@ using NLog;
 namespace SmartBulkCopy
 {
     [Flags]
-    public enum StopIf {
+    public enum StopIf {       
+        None, 
         SecondaryIndex,
         TemporalTable
     }
+
     public enum SafeCheck {
         None,
         Snapshot,
