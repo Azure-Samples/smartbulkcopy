@@ -114,6 +114,11 @@ namespace SmartBulkCopy
 
         public static SmartBulkCopyConfiguration EmptyConfiguration => new SmartBulkCopyConfiguration();
 
+        public static void PersistConfigurationToFile(string configuration)
+        {
+            File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "smartbulkcopy.config.json"), configuration, new System.Text.UTF8Encoding(false));
+        }
+
         public static SmartBulkCopyConfiguration LoadFromConfigFile(ILogger logger)        
         {
             return LoadFromConfigFile("smartbulkcopy.config", logger);

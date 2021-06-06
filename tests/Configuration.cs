@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System;
 using DotNetEnv;
+using System.IO;
 
 namespace SmartBulkCopy.Tests
 {
@@ -40,6 +41,18 @@ namespace SmartBulkCopy.Tests
         public void DontStopIfTemporalTable()
         {
             Assert.IsFalse(_config.StopIf.HasFlag(StopIf.TemporalTable));
+        }
+
+        [Test]
+        public void PersistConfigurationToFile()
+        {
+            string configuration = System.IO.File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "smartbulkcopy.config.test.json"));
+            SmartBulkCopyConfiguration.PersistConfigurationToFile(configuration);
+
+            Assert.That(Path.Combine(Directory.GetCurrentDirectory(), "smartbulkcopy.config.json"), Does.Exist);
+            SmartBulkCopyConfiguration config = SmartBulkCopyConfiguration.LoadFromConfigFile(_logger);
+            
+            Assert.AreEqual(System.Text.Json.JsonSerializer.Serialize(_config), System.Text.Json.JsonSerializer.Serialize(config));
         }
     }
 }

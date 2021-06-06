@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using NLog;
+using System.IO;
 
 namespace SmartBulkCopy
 {
@@ -18,11 +19,24 @@ namespace SmartBulkCopy
             try
             {
                 SmartBulkCopyConfiguration bulkCopyConfig;
+
                 if (args.Length > 0)
-                    bulkCopyConfig = SmartBulkCopyConfiguration.LoadFromConfigFile(args[0], logger);
-                else 
+                {
+                    if (args[0].StartsWith("{"))
+                    {
+                        SmartBulkCopyConfiguration.PersistConfigurationToFile(args[0]);
+                        bulkCopyConfig = SmartBulkCopyConfiguration.LoadFromConfigFile(logger);
+                    }
+                    else
+                    {
+                        bulkCopyConfig = SmartBulkCopyConfiguration.LoadFromConfigFile(args[0], logger);
+                    }
+                }
+                else
+                {
                     bulkCopyConfig = SmartBulkCopyConfiguration.LoadFromConfigFile(logger);
-                
+                }
+
                 var sbc = new SmartBulkCopy(bulkCopyConfig, logger);
                 result = await sbc.Copy();
             }
