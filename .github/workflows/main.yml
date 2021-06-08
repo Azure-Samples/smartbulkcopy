@@ -1,7 +1,7 @@
 name: Run Tests
 on:
   push:
-    branches: [ master, 1.9.5 ]  
+    branches: [ master, aci ]  
 jobs:
   RunTests:
     runs-on: ubuntu-latest
@@ -24,5 +24,5 @@ jobs:
         source-connection-string: ${{ secrets.SOURCE_CONNECTION_STRING }}        
         destination-connection-string: ${{ secrets.DESTINATION_CONNECTION_STRING }}            
       run: 
-        cd client; dotnet run -- ./e2e-test.config.json
+        cd client; dotnet run -- ./configs/e2e-test.config.json
       
