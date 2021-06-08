@@ -16,7 +16,7 @@ EOF
 	echo "Enviroment file not detected."
 	echo "Please configure values for your environment in the created .env file"
 	echo "and run the script again."
-	echo "RESOURCE_GROUP: Resource group where ACI will be deployed"
+	echo "RESOURCE_GROUP: Resource group where ACI will be deployed (must already exists)"
 	echo "AZURE_STORAGE_ACCOUNT: Storage account name that will be created to host the configuration file"
 	exit 1
 fi

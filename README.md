@@ -40,6 +40,8 @@ Smart Bulk Copy is also available as a [Docker Image](https://hub.docker.com/rep
 docker run -it -v c:\work\_git\smart-bulk-copy\client\configs:/app/client/configs yorek/smartbulkcopy:latest /app/client/configs/smartbulkcopy.config.json
 ```
 
+You can also run Smart Bulk Copy using [Azure Container Instances](https://docs.microsoft.com/en-us/azure/container-instances/container-instances-overview). Use the provided `azure-deploy.sh` script to create an ACI and execute Smart Bulk Copy. Make sure you have created the `smartbulkcopy.config.json` file in the `client/configs` folder before running the `.sh` script.
+
 ## How it works
 
 Smart Bulk Copy uses [Bulk Copy API](https://docs.microsoft.com/en-us/dotnet/api/system.data.sqlclient.sqlbulkcopy) with parallel tasks. A source table is split in partitions, and each partition is copied in parallel with others, up to a defined maximum, in order to use all the available network bandwidth and all the cloud or server resources available to minimize the load times.
