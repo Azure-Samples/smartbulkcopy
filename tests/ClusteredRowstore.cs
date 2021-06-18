@@ -20,7 +20,7 @@ namespace SmartBulkCopy.Tests
             Assert.IsInstanceOf(typeof(NoPartitionsCopyInfo), tar.CopyInfo[0]);
             Assert.AreEqual(1, tar.CopyInfo.Count);
             Assert.AreEqual(OrderHintType.ClusteredIndex, tar.CopyInfo[0].OrderHintType);
-            Assert.AreEqual("col17,col19", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
+            Assert.AreEqual("[col17],[col19]", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
             Assert.AreEqual("", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionByString());
         }
 
