@@ -419,30 +419,19 @@ namespace SmartBulkCopy
         {
             LogDebug($"Identifying table type...");
 
-            //dbender: temporal_type is available in SQL 2016 +
-            //var sql = $@"
-            //        select 
-            //            [temporal_type]
-            //        from 
-            //            sys.tables
-            //        where 
-            //            [object_id] = object_id(@tableName) 
-            //        ";
             var sql = $@"
-                    SELECT
-                    CASE WHEN CAST(LEFT(CAST(SERVERPROPERTY('productversion') as varchar), 4) as decimal(5, 0)) >= 13
-                    OR CAST(SERVERPROPERTY('Edition') as nvarchar) LIKE '%Azure%'
-                    THEN 
-                    (
-                     SELECT [temporal_type] FROM sys.tables
-                                        WHERE [object_id] = object_id(@tableName) 
-                    )
-                     ELSE 
-                    (
-                    SELECT 0 as [temporal_type] FROM sys.tables
-                                       WHERE [object_id] = object_id(@tableName)  
-                    )
-                    END
+                    SELECT 
+                        CASE 
+                            WHEN CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 13 OR CAST(SERVERPROPERTY('Edition') AS SYSNAME) LIKE N'%Azure%'
+                                THEN 
+                            (
+                                SELECT [temporal_type] FROM sys.tables WHERE [object_id] = object_id(@tableName) 
+                            )
+                            ELSE 
+                            (
+                                SELECT 0 as [temporal_type] FROM sys.tables WHERE [object_id] = object_id(@tableName)  
+                            )
+                        END AS [temporal_type]
                     ";
             LogDebug($"Executing:\n{sql}");
 
