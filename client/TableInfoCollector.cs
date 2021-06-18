@@ -52,8 +52,6 @@ namespace SmartBulkCopy
         public virtual string GetOrderByString() {
             var orderList = 
                 from c in this.GetOrderBy()
-                //dbender: Key word throws exception if not in the brackets
-                //select c.ColumnName + (c.IsDescending == true ? " DESC" : "");
                 select "[" + c.ColumnName + (c.IsDescending == true ? "] DESC" : "]");
 
             return string.Join(",", orderList);
@@ -62,7 +60,7 @@ namespace SmartBulkCopy
         public virtual string GetPartitionByString(){
             var orderList = 
                 from c in this.GetPartitionBy()
-                select c.ColumnName;      
+                select "[" + c.ColumnName + "]";      
     
             return string.Join(",", orderList);
         }

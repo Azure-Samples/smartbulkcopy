@@ -20,8 +20,8 @@ namespace SmartBulkCopy.Tests
             Assert.IsInstanceOf(typeof(NoPartitionsCopyInfo), tar.CopyInfo[0]);
             Assert.AreEqual(1, tar.CopyInfo.Count);
             Assert.AreEqual(OrderHintType.ClusteredIndex, tar.CopyInfo[0].OrderHintType);
-            Assert.AreEqual("PartitionDate,TransactionId,CategoryId", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
-            Assert.AreEqual("PartitionDate", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionByString());
+            Assert.AreEqual("[PartitionDate],[TransactionId],[CategoryId]", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
+            Assert.AreEqual("[PartitionDate]", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionByString());
         }
 
          [Test]
@@ -33,8 +33,8 @@ namespace SmartBulkCopy.Tests
             Assert.IsInstanceOf(typeof(PhysicalPartitionCopyInfo), tar.CopyInfo[0]);
             Assert.AreEqual(85, tar.CopyInfo.Count);
             Assert.AreEqual(OrderHintType.ClusteredIndex, tar.CopyInfo[0].OrderHintType);
-            Assert.AreEqual("L_COMMITDATE,L_ORDERKEY,L_LINENUMBER DESC", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
-            Assert.AreEqual("L_COMMITDATE", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionByString());
+            Assert.AreEqual("[L_COMMITDATE],[L_ORDERKEY],[L_LINENUMBER] DESC", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetOrderByString());
+            Assert.AreEqual("[L_COMMITDATE]", tar.CopyInfo[0].SourceTableInfo.PrimaryIndex.GetPartitionByString());
         }        
     }
 }
