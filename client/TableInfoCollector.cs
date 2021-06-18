@@ -52,8 +52,10 @@ namespace SmartBulkCopy
         public virtual string GetOrderByString() {
             var orderList = 
                 from c in this.GetOrderBy()
-                select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
-    
+                //dbender: Key word throws exception if not in the brackets
+                //select c.ColumnName + (c.IsDescending == true ? " DESC" : "");
+                select "[" + c.ColumnName + (c.IsDescending == true ? "] DESC" : "]");
+
             return string.Join(",", orderList);
         }
 
@@ -417,15 +419,31 @@ namespace SmartBulkCopy
         {
             LogDebug($"Identifying table type...");
 
+            //dbender: temporal_type is available in SQL 2016 +
+            //var sql = $@"
+            //        select 
+            //            [temporal_type]
+            //        from 
+            //            sys.tables
+            //        where 
+            //            [object_id] = object_id(@tableName) 
+            //        ";
             var sql = $@"
-                    select 
-                        [temporal_type]
-                    from 
-                        sys.tables
-                    where 
-                        [object_id] = object_id(@tableName) 
+                    SELECT
+                    CASE WHEN CAST(LEFT(CAST(SERVERPROPERTY('productversion') as varchar), 4) as decimal(5, 0)) >= 13
+                    OR CAST(SERVERPROPERTY('Edition') as nvarchar) LIKE '%Azure%'
+                    THEN 
+                    (
+                     SELECT [temporal_type] FROM sys.tables
+                                        WHERE [object_id] = object_id(@tableName) 
+                    )
+                     ELSE 
+                    (
+                    SELECT 0 as [temporal_type] FROM sys.tables
+                                       WHERE [object_id] = object_id(@tableName)  
+                    )
+                    END
                     ";
-
             LogDebug($"Executing:\n{sql}");
 
             _tableInfo.Type = await _conn.QuerySingleAsync<TableType>(sql, new { @tableName = _tableInfo.TableName });
