@@ -406,7 +406,7 @@ namespace SmartBulkCopy
                     if (!(copyInfo is NoPartitionsCopyInfo))
                         bulkLoadMessage += $" partition {copyInfo.PartitionNumber}";
 
-                    if (copyInfo.GetOrderBy().Trim() != string.Empty)
+                    if ((copyInfo.GetOrderBy().Trim() != string.Empty) && (copyInfo.OrderHintType != OrderHintType.None))
                         bulkLoadMessage += $" (OrderBy: {copyInfo.GetOrderBy()})";
 
                     _logger.Info(bulkLoadMessage + "...");
