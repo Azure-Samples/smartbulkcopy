@@ -77,7 +77,7 @@ namespace SmartBulkCopy
 
             if (_config.UseCompatibilityMode)
             {
-                _logger.Info($"Using Compatibility Mode.");
+                _logger.Info($"Bulk copy will run in Compatibility Mode.");
             }            
 
             _logger.Info($"Setting CommandTimeOut to: {_config.CommandTimeOut} secs");
