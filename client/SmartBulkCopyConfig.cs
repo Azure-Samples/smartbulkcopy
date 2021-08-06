@@ -28,6 +28,8 @@ namespace SmartBulkCopy
 
     public class SmartBulkCopyConfiguration 
     {        
+        public bool UseCompatibilityMode = false;
+
         public string SourceConnectionString;
         
         public string DestinationConnectionString;         
@@ -38,8 +40,7 @@ namespace SmartBulkCopy
         public int BatchSize {
             get { return _batchSize; }
             set {
-                if (value < 0) throw new ArgumentException($"{nameof(BatchSize)}cannot be less than 0");
-                if (value > Int32.MaxValue) throw new ArgumentException($"{nameof(BatchSize)} cannot be greather than {Int32.MaxValue}");
+                if (value < 0) throw new ArgumentException($"{nameof(BatchSize)}cannot be less than 0");                
                 _batchSize = value;
             }
         }
@@ -144,6 +145,7 @@ namespace SmartBulkCopy
             sbcc.MaxParallelTasks = int.Parse(config?["options:tasks"] ?? sbcc.MaxParallelTasks.ToString());
             sbcc.TruncateTables = bool.Parse(config?["options:truncate-tables"] ?? sbcc.TruncateTables.ToString());
             sbcc.SyncIdentity = bool.Parse(config?["options:sync-identity"] ?? sbcc.SyncIdentity.ToString());
+            sbcc.UseCompatibilityMode = bool.Parse(config?["options:compatibility-mode"] ?? sbcc.UseCompatibilityMode.ToString());
             sbcc.RetryMaxAttempt = int.Parse(config?["options:retry-connection:max-attempt"] ?? sbcc.RetryMaxAttempt.ToString());
             sbcc.RetryDelayIncrement = int.Parse(config?["options:retry-connection:delay-increment"] ?? sbcc.RetryDelayIncrement.ToString());
             

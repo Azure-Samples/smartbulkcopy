@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/client/bin/Debug/netcoreapp3.1/SmartBulkCopy.dll",
-            "args": [],
+            "args": ["smartbulkcopy-test.config.json"],
             "cwd": "${workspaceFolder}/client",
             "console": "internalConsole",
             "stopAtEntry": false

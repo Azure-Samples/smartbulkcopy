@@ -75,6 +75,11 @@ namespace SmartBulkCopy
         {
             _logger.Info("Starting smart bulk copy process...");
 
+            if (_config.UseCompatibilityMode)
+            {
+                _logger.Info($"Using Compatibility Mode.");
+            }            
+
             _logger.Info($"Setting CommandTimeOut to: {_config.CommandTimeOut} secs");
             Dapper.SqlMapper.Settings.CommandTimeout = _config.CommandTimeOut;
 
@@ -520,8 +525,14 @@ namespace SmartBulkCopy
                                 Task innerTask = null;
                                 try
                                 {
-                                    innerTask = bulkCopy.WriteToServerAsync(sourceReader, ct);
-                                    innerTask.Wait();
+                                    if (_config.UseCompatibilityMode)
+                                    {
+                                        bulkCopy.WriteToServer(sourceReader);
+                                        _logger.Info($"Task {taskId} running in Compatibility Mode.");
+                                    } else {
+                                        innerTask = bulkCopy.WriteToServerAsync(sourceReader, ct);
+                                        innerTask.Wait();
+                                    }
                                 }
                                 catch (Exception ex)
                                 {
@@ -539,7 +550,9 @@ namespace SmartBulkCopy
                                             if (!(ine is AggregateException)) _logger.Error($"Task {taskId}@WriteToServerAsync: [{ine.GetType()}] {ine.Message}");
                                             ine = ine.InnerException;
                                         }
-                                        throw ex;
+                                        throw;
+                                    } else {
+                                        throw;
                                     }
                                 }
 
@@ -581,7 +594,7 @@ namespace SmartBulkCopy
                             }
                             else
                             {
-                                throw se;
+                                throw;
                             }
                         }
                         finally
