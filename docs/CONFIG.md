@@ -84,6 +84,6 @@ Introduced in **version 1.9.4** allows to set the timeout, in seconds, for a com
 
 ## Compatibility Mode
 
-`"command-timeout": false`
+`"compatibility-mode": false`
 
 Introduced in **version 1.9.8**. Do not use unless you encounter issues with regular code path. When moving XML tables with big XML documents it can happen that a thread get locked in a deadlock. You'll observe insanely high ASYNC_NETWORK_IO wait typs both on source and destination, transfer speed down to 0.0 Mb/Sec while Smart Bulk Copy is still running. If this happens (so far only one instance of this issue has been reported) you can set `compatibility-mode` to tru, so that he non-async method `WriteToServer` will be used (instead of `WriteToServerAsync`). This does not suffer of the deadlock problem, but it also cannot be nicely cancelled and exception management, and thus connection recovery, is more difficult. So use it only if you have issues with the regular code path.
