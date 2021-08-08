@@ -10,6 +10,7 @@
         "exclude": []
     },
     "options": {
+        "compatibility-mode": false,
         "command-timeout": 1800,
         "tasks": 8,
         "logical-partitions": "auto",
