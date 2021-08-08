@@ -2,15 +2,15 @@
 
 You can fine tune Smart Bulk Copy behavior with the configuration settings available in `option` section:
 
-- [Parallelism](#Parallelism)
-- [Partitions](#Partitions)
-- [Batch Size](#Batch%20Size)
-- [Table Truncation](#Table%20Truncation)
-- [Identity Sync](#Identity%20Sync)
-- [Safety Checks](#Safety%20Checks)
-- [Connection Resiliency](#Connection%20Resiliency)
-- [Command Timeout](#Command%20Timeout)
-- [Compatibility Mode](#Compatibility%20Mode)
+- [Parallelism](#parallelism)
+- [Partitions](#partitions)
+- [Batch Size](#batch-Size)
+- [Table Truncation](#table-truncation)
+- [Identity Sync](#identity-sync)
+- [Safety Checks](#safety-checks)
+- [Connection Resiliency](#connection-resiliency)
+- [Command Timeout](#command-timeout)
+- [Compatibility Mode](#compatibility-mode)
 
 ## Parallelism
 
