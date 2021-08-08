@@ -527,8 +527,8 @@ namespace SmartBulkCopy
                                 {
                                     if (_config.UseCompatibilityMode)
                                     {
+                                        _logger.Debug($"Task {taskId}: running in Compatibility Mode.");
                                         bulkCopy.WriteToServer(sourceReader);
-                                        _logger.Info($"Task {taskId} running in Compatibility Mode.");
                                     } else {
                                         innerTask = bulkCopy.WriteToServerAsync(sourceReader, ct);
                                         innerTask.Wait();
