@@ -1,7 +1,7 @@
 {
     "tables": {
         "include": ["schema1.*", "dbo.Issue17", "dbo.Issue23"],
-        "exclude": ["schema1.table_with_fk", "schema1.mix", "schema1.clustered_rowstore_pk", "schema1.xml"]
+        "exclude": ["schema1.table_with_fk", "schema1.mix", "schema1.clustered_rowstore_pk", "schema1.xml_table"]
     },
     "options": {
         "tasks": 8,
