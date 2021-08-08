@@ -39,7 +39,13 @@ namespace SmartBulkCopy.Tests
         [Test]
         public void DontStopIfTemporalTable()
         {
-            Assert.IsFalse(_config.StopIf.HasFlag(StopIf.TemporalTable));
+           Assert.IsFalse(_config.StopIf.HasFlag(StopIf.TemporalTable));
+        }
+
+        [Test]
+        public void CompatibilityMode()
+        {
+            Assert.IsTrue(_config.UseCompatibilityMode);            
         }
     }
 }
