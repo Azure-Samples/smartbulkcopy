@@ -10,6 +10,7 @@ You can fine tune Smart Bulk Copy behavior with the configuration settings avail
 - [Safety Checks](#Safety%20Checks)
 - [Connection Resiliency](#Connection%20Resiliency)
 - [Command Timeout](#Command%20Timeout)
+- [Compatibility Mode](#Compatibility%20Mode)
 
 ## Parallelism
 
