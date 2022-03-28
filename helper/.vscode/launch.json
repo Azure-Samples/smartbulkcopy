@@ -10,8 +10,8 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/bin/Debug/netcoreapp3.1/SmartBulkCopy.SchemaClone.dll",
-            "args": ["../client/smartbulkcopy-test.config.json"],
+            "program": "${workspaceFolder}/bin/Debug/net6.0/SmartBulkCopy.SchemaClone.dll",
+            "args": ["../client/configs/e2e-test.config.json"],
             "cwd": "${workspaceFolder}",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
