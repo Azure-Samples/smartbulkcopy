@@ -336,3 +336,4 @@ smartbulkcopy*.config.json
 log.txt
 out/
 .vs/
+readme.private.md
