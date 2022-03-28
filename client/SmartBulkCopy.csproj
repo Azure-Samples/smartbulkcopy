@@ -27,15 +27,13 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
-    <PackageReference Include="Microsoft.SqlServer.DacFx" Version="160.5400.1" />
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />    
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />    
   </ItemGroup>
   
-  <!-- <ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\hack\Microsoft.SqlServer.Types.Hack.csproj" />    
-  </ItemGroup> -->
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="*.config.json">
