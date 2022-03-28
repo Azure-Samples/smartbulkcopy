@@ -70,10 +70,7 @@ namespace SmartBulkCopy
             shc.SourceConnectionString = config["source:connection-string"] ?? Environment.GetEnvironmentVariable("source-connection-string");
             shc.DestinationConnectionString = config["destination:connection-string"] ?? Environment.GetEnvironmentVariable("destination-connection-string");            
 
-            if (bool.Parse(config["extensions:schema-clone:stop-if:any-user-object"] ?? "true"))
-            {
-                shc.StopOn = StopOn.AnyUserObject;
-            }
+            shc.StopOn = Enum.Parse<StopOn>((config["extensions:schema-clone:stop-if"] ?? "AnyUserObject").Replace("-", ""), ignoreCase: true);
 
             foreach(var c in config.GetSection("extensions:schema-clone:exclude")?.GetChildren())
             {
