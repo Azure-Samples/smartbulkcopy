@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Title>SmartBulkCopy</Title>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Authors>Davide Mauri</Authors>
     <Product>SmartBulkCopy</Product>
@@ -21,19 +21,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.0.90" />    
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="3.0.0" />
+    <PackageReference Include="Dapper" Version="2.0.123" />    
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="4.1.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
+    <PackageReference Include="Microsoft.SqlServer.DacFx" Version="160.5400.1" />
     <PackageReference Include="NLog.Extensions.Logging" Version="1.6.5" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
   </ItemGroup>
   
-  <ItemGroup>
+  <!-- <ItemGroup>
     <ProjectReference Include="..\hack\Microsoft.SqlServer.Types.Hack.csproj" />    
-  </ItemGroup>
+  </ItemGroup> -->
 
   <ItemGroup>
     <Content Include="*.config.json">

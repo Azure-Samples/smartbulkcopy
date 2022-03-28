@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <Title>SmartBulkCopy.Tests</Title>    
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <Authors>Davide Mauri</Authors>
