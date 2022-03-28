@@ -18,5 +18,11 @@
             "delay-increment": 10,
             "max-attempt": 5
         }
+    },
+    "extensions": {
+        "schema-clone": {
+            "stop-if": "none",
+            "exclude": ["fulltext", "foreign-keys", "rowstore-non-clustered-indexes"]
+        }
     }
 }
