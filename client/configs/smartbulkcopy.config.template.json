@@ -10,11 +10,13 @@
         "exclude": []
     },
     "options": {
+        "compatibility-mode": false,
         "command-timeout": 1800,
         "tasks": 8,
         "logical-partitions": "auto",
         "batch-size": 100000,
         "truncate-tables": true,
+        "sync-identity": false,
         "safe-check": "readonly",
         "stop-if": {
             "secondary-indexes": true,

@@ -75,6 +75,11 @@ namespace SmartBulkCopy
         {
             _logger.Info("Starting smart bulk copy process...");
 
+            if (_config.UseCompatibilityMode)
+            {
+                _logger.Info($"Bulk copy will run in Compatibility Mode.");
+            }            
+
             _logger.Info($"Setting CommandTimeOut to: {_config.CommandTimeOut} secs");
             Dapper.SqlMapper.Settings.CommandTimeout = _config.CommandTimeOut;
 
@@ -221,9 +226,23 @@ namespace SmartBulkCopy
                 else
                 {
                     _logger.Info("All tables copied correctly.");
+
+                    if (_config.SyncIdentity)
+                    {
+                        _logger.Info("Synchronizing identity values...");
+                        bool identitySynced = await SyncIdentity();           
+                        if (!identitySynced)
+                        {       
+                            _logger.Warn("WARNING! Identity synchronization encountered some errors!");
+                            result = 2;  
+                        } else 
+                        {
+                            _logger.Info("Identity synchronization done.");             
+                        }                        
+                    }
                 }
 
-                _logger.Info("Done in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
+                _logger.Info("Smart Bulk Copy completed in {0:#.00} secs.", (double)_stopwatch.ElapsedMilliseconds / 1000.0);
             }
             else
             {
@@ -279,6 +298,7 @@ namespace SmartBulkCopy
             var connSource = new SqlConnection(_config.SourceConnectionString);
             var connDest = new SqlConnection(_config.DestinationConnectionString);
             bool result = true;
+
             string sql = @"
                 select 
                     sum(row_count) as row_count 
@@ -318,6 +338,56 @@ namespace SmartBulkCopy
             return result;
         }
 
+        private async Task<bool> SyncIdentity()
+        {
+            var connSource = new SqlConnection(_config.SourceConnectionString);
+            var connDest = new SqlConnection(_config.DestinationConnectionString);
+            bool result = true;
+
+            string sqlCheck = @"
+                with cte as
+                (
+                    select 	
+                        objectproperty([object_id], 'TableHasIdentity') as TableHasIdentity,
+                        ident_current(schema_name([schema_id]) + '.' + object_name([object_id])) as IdentityCurrent
+                    from
+                        sys.[tables]
+                    where 
+                    object_id = object_id(@tableName) 
+                )
+                select
+                    IdentityCurrent
+                from
+                    cte
+                where
+                    TableHasIdentity = 1
+                ";
+
+            foreach (var t in _tablesToCopy)
+            {
+                _logger.Debug($"Executing: {sqlCheck}, @tableName = {t}");
+                var ic = await connSource.ExecuteScalarAsync<int?>(sqlCheck, new { @tableName = t });
+                if (ic.HasValue)
+                {
+                    string sqlSet = $"dbcc checkident('{t}', reseed, {ic.Value})";
+                    _logger.Debug($"Executing: {sqlSet}, @tableName = {t}");
+                    connDest.Execute(sqlSet);
+                    var ic2 = await connDest.ExecuteScalarAsync<int?>(sqlCheck, new { @tableName = t });
+                    if (ic.Value == ic2.Value) 
+                    {
+                        _logger.Info($"Identity for table {t} set to {ic.Value}");
+                    }                        
+                    else
+                    {
+                        _logger.Error($"Unable to sync identity value for {t} to {ic.Value}. Identity value found is {ic2.Value}.");
+                        result = false;
+                    }                            
+                }
+            }
+
+            return result;
+        }
+
         private void TruncateDestinationTable(string tableName)
         {
             _logger.Info($"Truncating '{tableName}'...");
@@ -341,7 +411,7 @@ namespace SmartBulkCopy
                     if (!(copyInfo is NoPartitionsCopyInfo))
                         bulkLoadMessage += $" partition {copyInfo.PartitionNumber}";
 
-                    if (copyInfo.GetOrderBy().Trim() != string.Empty)
+                    if ((copyInfo.GetOrderBy().Trim() != string.Empty) && (copyInfo.OrderHintType != OrderHintType.None))
                         bulkLoadMessage += $" (OrderBy: {copyInfo.GetOrderBy()})";
 
                     _logger.Info(bulkLoadMessage + "...");
@@ -455,8 +525,14 @@ namespace SmartBulkCopy
                                 Task innerTask = null;
                                 try
                                 {
-                                    innerTask = bulkCopy.WriteToServerAsync(sourceReader, ct);
-                                    innerTask.Wait();
+                                    if (_config.UseCompatibilityMode)
+                                    {
+                                        _logger.Debug($"Task {taskId}: running in Compatibility Mode.");
+                                        bulkCopy.WriteToServer(sourceReader);
+                                    } else {
+                                        innerTask = bulkCopy.WriteToServerAsync(sourceReader, ct);
+                                        innerTask.Wait();
+                                    }
                                 }
                                 catch (Exception ex)
                                 {
@@ -474,7 +550,9 @@ namespace SmartBulkCopy
                                             if (!(ine is AggregateException)) _logger.Error($"Task {taskId}@WriteToServerAsync: [{ine.GetType()}] {ine.Message}");
                                             ine = ine.InnerException;
                                         }
-                                        throw ex;
+                                        throw;
+                                    } else {
+                                        throw;
                                     }
                                 }
 
@@ -516,7 +594,7 @@ namespace SmartBulkCopy
                             }
                             else
                             {
-                                throw se;
+                                throw;
                             }
                         }
                         finally
@@ -762,6 +840,8 @@ namespace SmartBulkCopy
                             sys.objects o on t.[object_id] = o.[object_id] 
                         where
                             o.is_ms_shipped = 0
+                        and
+                            t.is_external = 0
                         and
 	                        t.[name] != 'sysdiagrams'
                     ");

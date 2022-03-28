@@ -29,5 +29,23 @@ namespace SmartBulkCopy.Tests
         {
             Assert.AreEqual(_config.CommandTimeOut, 90 * 60);
         }
+
+        [Test]
+        public void StopIfSecondaryIndex()
+        {
+            Assert.IsTrue(_config.StopIf.HasFlag(StopIf.SecondaryIndex));
+        }
+
+        [Test]
+        public void DontStopIfTemporalTable()
+        {
+           Assert.IsFalse(_config.StopIf.HasFlag(StopIf.TemporalTable));
+        }
+
+        [Test]
+        public void CompatibilityMode()
+        {
+            Assert.IsTrue(_config.UseCompatibilityMode);            
+        }
     }
 }

@@ -52,15 +52,15 @@ namespace SmartBulkCopy
         public virtual string GetOrderByString() {
             var orderList = 
                 from c in this.GetOrderBy()
-                select c.ColumnName + (c.IsDescending == true ? " DESC" : "");      
-    
+                select "[" + c.ColumnName + (c.IsDescending == true ? "] DESC" : "]");
+
             return string.Join(",", orderList);
         }
 
         public virtual string GetPartitionByString(){
             var orderList = 
                 from c in this.GetPartitionBy()
-                select c.ColumnName;      
+                select "[" + c.ColumnName + "]";      
     
             return string.Join(",", orderList);
         }
@@ -418,14 +418,19 @@ namespace SmartBulkCopy
             LogDebug($"Identifying table type...");
 
             var sql = $@"
-                    select 
-                        [temporal_type]
-                    from 
-                        sys.tables
-                    where 
-                        [object_id] = object_id(@tableName) 
+                    SELECT 
+                        CASE 
+                            WHEN CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 13 OR CAST(SERVERPROPERTY('Edition') AS SYSNAME) LIKE N'%Azure%'
+                                THEN 
+                            (
+                                SELECT [temporal_type] FROM sys.tables WHERE [object_id] = object_id(@tableName) 
+                            )
+                            ELSE 
+                            (
+                                SELECT 0 as [temporal_type] FROM sys.tables WHERE [object_id] = object_id(@tableName)  
+                            )
+                        END AS [temporal_type]
                     ";
-
             LogDebug($"Executing:\n{sql}");
 
             _tableInfo.Type = await _conn.QuerySingleAsync<TableType>(sql, new { @tableName = _tableInfo.TableName });

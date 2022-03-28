@@ -10,6 +10,7 @@
     "exclude": [ "schema1.table_with_fk", "schema1.clustered_rowstore_pk", "schema1.mix" ]
   },
   "options": {
+    "compatibility-mode": true,
     "command-timeout": 5400,
     "tasks": 7,
     "logical-partitions": "auto",
