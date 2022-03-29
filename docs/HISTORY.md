@@ -2,7 +2,7 @@
 
 ## 1.9.8
 
-- Added option compatibility-mode to provide a workaround for when, using xml tables, the WriteToServerAsync method get stuck in a deadlock. When compatibility-mode set to true, the non-async method WriteToServer will be used. This does not suffer of the deadlock problem, but it also cannot be nicely cancelled and so exception management, and thus connection recovery, is more difficult.
+- Added option `compatibility-mode` to provide a workaround for when, using xml tables, the `WriteToServerAsync` method get stuck in a deadlock. When `compatibility-mode` set to `true`, the non-async method `WriteToServer` will be used. This does not suffer of the deadlock problem, but it also cannot be nicely cancelled and so exception management, and thus connection recovery, is more difficult.
 
 ## 1.9.7
 
