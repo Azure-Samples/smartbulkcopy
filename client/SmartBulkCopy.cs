@@ -830,21 +830,42 @@ namespace SmartBulkCopy
                 {
                     _logger.Debug($"Wildcard found: '{t}'. Getting list of tables to copy...");
                     var tables = conn.Query(@"
-                        select 
-                            [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
-                        from 
-                            sys.tables t 
-                        inner join 
-                            sys.schemas s on t.[schema_id] = s.[schema_id] 
-                        inner join 
-                            sys.objects o on t.[object_id] = o.[object_id] 
-                        where
-                            o.is_ms_shipped = 0
-                        and
-                            t.is_external = 0
-                        and
-	                        t.[name] != 'sysdiagrams'
-                    ");
+                    SELECT 
+                        CASE 
+                            WHEN CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 13 OR CAST(SERVERPROPERTY('Edition') AS SYSNAME) LIKE N'%Azure%'
+                                THEN 
+                            (
+                                select 
+                                        [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
+                                from 
+                                        sys.tables t 
+                                inner join 
+                                    sys.schemas s on t.[schema_id] = s.[schema_id] 
+                                inner join 
+                                    sys.objects o on t.[object_id] = o.[object_id] 
+                                where
+                                    o.is_ms_shipped = 0
+                                and
+                                    t.is_external = 0
+                                and
+	                                t.[name] != 'sysdiagrams'
+                            )
+                            ELSE 
+                            (
+                                select 
+                                        [Name] = QUOTENAME(s.[name]) + '.' + QUOTENAME(t.[name]) 
+                                from 
+                                        sys.tables t 
+                                inner join 
+                                    sys.schemas s on t.[schema_id] = s.[schema_id] 
+                                inner join 
+                                    sys.objects o on t.[object_id] = o.[object_id] 
+                                where
+                                    o.is_ms_shipped = 0
+                                and
+	                                t.[name] != 'sysdiagrams'
+                            )
+		    ");
                     var regExPattern = t.Replace(".", "[.]").Replace("*", ".*");
                     foreach (var tb in tables)
                     {
