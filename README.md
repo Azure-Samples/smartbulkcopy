@@ -28,7 +28,7 @@ Taxonomies for products and languages: https://review.docs.microsoft.com/new-hop
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg) ![Run Tests](https://github.com/yorek/smartbulkcopy/workflows/Run%20Tests/badge.svg) 
 
-*Latest Stable Version: 1.9.8*
+*Latest Stable Version: 1.9.9*
 
 Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL / SQL Server database to another. Smartly uses logical or physical partitions to maximize transfer speed using parallel copy tasks.
 
@@ -188,4 +188,12 @@ This tool has been tested against the following sample database with success:
 
 Note that Foreign Keys and Views were dropped from target table before starting bulk copy
 
+Smart Bulk Copy has been tested with the following SQL Server engine versions:
+
+- Azure SQL Database
+- Azure SQL Managed Instance
+- SQL Server 2019
+- SQL Server 2017
+- SQL Server 2016
+- SQL Server 2014
 

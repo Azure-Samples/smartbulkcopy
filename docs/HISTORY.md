@@ -1,5 +1,9 @@
 ### Version History 
 
+## 1.9.9
+
+- Improved query compatibility to make Smart Bulk Copy work also with previous version of SQL Server, like 2014 (please not that it has not been tested with version prior than that.)
+
 ## 1.9.8
 
 - Added option `compatibility-mode` to provide a workaround for when, using xml tables, the `WriteToServerAsync` method get stuck in a deadlock. When `compatibility-mode` set to `true`, the non-async method `WriteToServer` will be used. This does not suffer of the deadlock problem, but it also cannot be nicely cancelled and so exception management, and thus connection recovery, is more difficult.
