@@ -2,7 +2,7 @@
 
 ## 1.9.9
 
-- Improved query compatibility to make Smart Bulk Copy work also with previous version of SQL Server, like 2014 (please not that it has not been tested with version prior than that.)
+- Improved query compatibility to make Smart Bulk Copy work also with previous version of SQL Server, like 2014 (please note that it has not been tested with version prior than that.)
 
 ## 1.9.8
 
