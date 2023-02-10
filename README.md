@@ -84,7 +84,13 @@ Couple of notes for tables with Clustered Columnstore index:
 
 ## How to use it
 
-Download or clone the repository, make sure you have .NET Core 3.1 installed and then create a `smartbulkcopy.config` file from the provided `smartbulkcopy.config.template`. If you want to start right away just, provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
+Download or clone the repository, make sure you have .NET Core 3.1 installed and then build Smart Bulk Copy:
+
+```bash
+dotnet build
+```
+
+Then, in the `client` folder, create a `smartbulkcopy.config` file from the provided `client/config/smartbulkcopy.config.template`. If you want to start right away just, provide source and destination connection strings and leave all the options as is. Make sure the source database is a database snapshot:
 
 [Create a Database Snapshot](https://docs.microsoft.com/en-us/sql/relational-databases/databases/create-a-database-snapshot-transact-sql?view=sql-server-2017)
 
