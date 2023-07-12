@@ -11,7 +11,6 @@ products:
 - azure-sqlserver-vm
 - azure
 - dotnet
-- dotnet-core
 description: "Smart, High-Speed, Bulk Copy tool to move data from one Azure SQL or SQL Server database to another"
 urlFragment: smart-bulk-copy
 ---
